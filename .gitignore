@@ -1,0 +1,199 @@
+# FreeCaster .gitignore
+
+# Build directories
+build/
+Build/
+Builds/
+cmake-build-*/
+
+# CMake
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+install_manifest.txt
+CTestTestfile.cmake
+_deps/
+
+# JUCE
+JuceLibraryCode/
+*.jucer.bak
+
+# Compiled Object files
+*.slo
+*.lo
+*.o
+*.obj
+*.ko
+*.elf
+
+# Precompiled Headers
+*.gch
+*.pch
+
+# Compiled Dynamic libraries
+*.so
+*.dylib
+*.dll
+
+# Compiled Static libraries
+*.lai
+*.la
+*.a
+*.lib
+
+# Executables
+*.exe
+*.out
+*.app
+
+# Plugin formats (generated)
+*.vst3
+*.vst
+*.component
+*.aaxplugin
+
+# Xcode
+*.pbxuser
+*.mode1v3
+*.mode2v3
+*.perspectivev3
+*.xcuserstate
+*.xccheckout
+xcuserdata/
+DerivedData/
+*.xcworkspace
+!default.xcworkspace
+project.xcworkspace
+
+# Visual Studio
+.vs/
+*.suo
+*.user
+*.sln.docstates
+*.VC.db
+*.VC.opendb
+*.aps
+*.ncb
+*.opensdf
+*.sdf
+*.cachefile
+*.VC.VC.opendb
+[Dd]ebug/
+[Dd]ebugPublic/
+[Rr]elease/
+[Rr]eleases/
+x64/
+x86/
+bld/
+[Bb]in/
+[Oo]bj/
+
+# Visual Studio Code
+.vscode/
+*.code-workspace
+
+# Cursor
+.cursor/
+
+# CLion / IntelliJ
+.idea/
+cmake-build-*/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.ico
+.com.apple.timemachine.donotpresent
+.AppleDB
+.AppleDesktop
+Network Trash Folder
+Temporary Items
+.apdisk
+
+# Linux
+*~
+.directory
+.Trash-*
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.cab
+*.msi
+*.msm
+*.msp
+*.lnk
+
+# Temporary files
+*.tmp
+*.temp
+*.log
+*.swp
+*.swo
+*~
+.#*
+
+# Package managers
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# Testing
+test_results/
+*.test
+*.spec
+
+# Documentation builds
+docs/_build/
+site/
+
+# Environment
+.env
+.env.local
+
+# Backup files
+*.bak
+*.backup
+*~
+*.orig
+
+# Profiling
+*.prof
+
+# Core dumps
+core
+core.*
+
+# IDE-specific
+.clangd/
+.cache/
+compile_commands.json
+
+# Build artifacts that might be copied
+*.vst3.zip
+*.dmg
+*.pkg
+*.deb
+*.rpm
+*.tar.gz
+*.zip
+
+# Don't ignore these important files
+!.gitignore
+!*.md
+!CMakeLists.txt
+!*.h
+!*.cpp
+!*.mm
+!*.c
+!*.sh
+!*.bat
