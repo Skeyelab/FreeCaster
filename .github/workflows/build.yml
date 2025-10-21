@@ -57,11 +57,11 @@ jobs:
           echo "Creating clean distribution for Linux..."
           # For Linux, we'll create a simple distribution from the build artifacts
           mkdir -p dist
-          if [ -d "build/FreeCaster_artefacts/VST3/FreeCaster.vst3" ]; then
-            cp -R build/FreeCaster_artefacts/VST3/FreeCaster.vst3 dist/
+          if [ -d "build/FreeCaster_artefacts/Release/VST3/FreeCaster.vst3" ]; then
+            cp -R build/FreeCaster_artefacts/Release/VST3/FreeCaster.vst3 dist/
           fi
-          if [ -f "build/FreeCaster_artefacts/Standalone/FreeCaster" ]; then
-            cp build/FreeCaster_artefacts/Standalone/FreeCaster dist/
+          if [ -f "build/FreeCaster_artefacts/Release/Standalone/FreeCaster" ]; then
+            cp build/FreeCaster_artefacts/Release/Standalone/FreeCaster dist/
           fi
 
       - name: Verify distribution
@@ -168,21 +168,21 @@ jobs:
           fi
 
           # Sign AU component
-          if [ -d "build/FreeCaster_artefacts/AU/FreeCaster.component" ]; then
+          if [ -d "build/FreeCaster_artefacts/Release/AU/FreeCaster.component" ]; then
               echo "  - Signing AU component..."
-              sign_bundle "build/FreeCaster_artefacts/AU/FreeCaster.component"
+              sign_bundle "build/FreeCaster_artefacts/Release/AU/FreeCaster.component"
           fi
 
           # Sign VST3 plugin
-          if [ -d "build/FreeCaster_artefacts/VST3/FreeCaster.vst3" ]; then
+          if [ -d "build/FreeCaster_artefacts/Release/VST3/FreeCaster.vst3" ]; then
               echo "  - Signing VST3 plugin..."
-              sign_bundle "build/FreeCaster_artefacts/VST3/FreeCaster.vst3"
+              sign_bundle "build/FreeCaster_artefacts/Release/VST3/FreeCaster.vst3"
           fi
 
           # Sign standalone application
-          if [ -d "build/FreeCaster_artefacts/Standalone/FreeCaster.app" ]; then
+          if [ -d "build/FreeCaster_artefacts/Release/Standalone/FreeCaster.app" ]; then
               echo "  - Signing standalone application..."
-              sign_bundle "build/FreeCaster_artefacts/Standalone/FreeCaster.app"
+              sign_bundle "build/FreeCaster_artefacts/Release/Standalone/FreeCaster.app"
           fi
 
       - name: Notarize macOS Plugin
@@ -271,35 +271,35 @@ jobs:
           echo "  ✅ Notarization credentials available"
 
           # Notarize AU component
-          if [ -d "build/FreeCaster_artefacts/AU/FreeCaster.component" ]; then
+          if [ -d "build/FreeCaster_artefacts/Release/AU/FreeCaster.component" ]; then
               echo "  - Notarizing AU component..."
-              notarize_bundle "build/FreeCaster_artefacts/AU/FreeCaster.component"
+              notarize_bundle "build/FreeCaster_artefacts/Release/AU/FreeCaster.component"
           fi
 
           # Notarize VST3 plugin
-          if [ -d "build/FreeCaster_artefacts/VST3/FreeCaster.vst3" ]; then
+          if [ -d "build/FreeCaster_artefacts/Release/VST3/FreeCaster.vst3" ]; then
               echo "  - Notarizing VST3 plugin..."
-              notarize_bundle "build/FreeCaster_artefacts/VST3/FreeCaster.vst3"
+              notarize_bundle "build/FreeCaster_artefacts/Release/VST3/FreeCaster.vst3"
           fi
 
           # Notarize standalone application
-          if [ -d "build/FreeCaster_artefacts/Standalone/FreeCaster.app" ]; then
+          if [ -d "build/FreeCaster_artefacts/Release/Standalone/FreeCaster.app" ]; then
               echo "  - Notarizing standalone application..."
-              notarize_bundle "build/FreeCaster_artefacts/Standalone/FreeCaster.app"
+              notarize_bundle "build/FreeCaster_artefacts/Release/Standalone/FreeCaster.app"
           fi
 
       - name: Create clean distribution
         run: |
           echo "Creating clean distribution for macOS..."
           mkdir -p dist
-          if [ -d "build/FreeCaster_artefacts/AU/FreeCaster.component" ]; then
-            cp -R build/FreeCaster_artefacts/AU/FreeCaster.component dist/
+          if [ -d "build/FreeCaster_artefacts/Release/AU/FreeCaster.component" ]; then
+            cp -R build/FreeCaster_artefacts/Release/AU/FreeCaster.component dist/
           fi
-          if [ -d "build/FreeCaster_artefacts/VST3/FreeCaster.vst3" ]; then
-            cp -R build/FreeCaster_artefacts/VST3/FreeCaster.vst3 dist/
+          if [ -d "build/FreeCaster_artefacts/Release/VST3/FreeCaster.vst3" ]; then
+            cp -R build/FreeCaster_artefacts/Release/VST3/FreeCaster.vst3 dist/
           fi
-          if [ -d "build/FreeCaster_artefacts/Standalone/FreeCaster.app" ]; then
-            cp -R build/FreeCaster_artefacts/Standalone/FreeCaster.app dist/
+          if [ -d "build/FreeCaster_artefacts/Release/Standalone/FreeCaster.app" ]; then
+            cp -R build/FreeCaster_artefacts/Release/Standalone/FreeCaster.app dist/
           fi
 
       - name: Verify distribution

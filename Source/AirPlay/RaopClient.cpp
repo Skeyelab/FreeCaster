@@ -221,7 +221,7 @@ bool RaopClient::sendRecord()
     headers.set("CSeq", "2");
     headers.set("Range", "npt=0-");
     headers.set("RTP-Info", "seq=0;rtptime=0");
-    
+
     return sendRtspRequest("RECORD", "rtsp://" + currentDevice.getHostAddress() + "/stream", headers);
 }
 
