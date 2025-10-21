@@ -32,9 +32,10 @@ juce_add_plugin(FreeCaster
     COPY_PLUGIN_AFTER_BUILD TRUE
     PLUGIN_MANUFACTURER_CODE Frec
     PLUGIN_CODE Fcst
-    FORMATS VST3 Standalone
+    FORMATS AU VST3 Standalone
     PRODUCT_NAME "FreeCaster"
     VST3_CATEGORIES Fx Tools
+    AU_MAIN_TYPE kAudioUnitType_Effect
 )
 
 target_sources(FreeCaster
