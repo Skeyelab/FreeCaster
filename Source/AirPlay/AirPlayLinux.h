@@ -4,6 +4,7 @@
 
 #include "AirPlayManager.h"
 #include "RaopClient.h"
+#include "../Audio/AudioEncoder.h"
 
 class AirPlayLinux : public AirPlayStreamer
 {
