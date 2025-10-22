@@ -117,10 +117,16 @@ jobs:
       - name: Build macOS Plugin
         run: |
           echo "Building FreeCaster plugin..."
-
-          # Detect architecture
-          ARCH=$(uname -m)
-          echo "Building for architecture: $ARCH"
+          
+          # Detect actual hardware architecture (not process architecture)
+          # Use sysctl which returns the real hardware arch even under Rosetta
+          if sysctl -n machdep.cpu.brand_string | grep -q "Apple"; then
+            ARCH="arm64"
+            echo "Detected Apple Silicon - building for arm64"
+          else
+            ARCH=$(uname -m)
+            echo "Detected Intel Mac - building for $ARCH"
+          fi
 
           # Configure with CMake - explicitly set architecture
           cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES=$ARCH
