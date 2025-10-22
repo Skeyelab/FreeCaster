@@ -61,11 +61,11 @@ jobs:
           echo "Creating clean distribution for Linux..."
           # For Linux, we'll create a simple distribution from the build artifacts
           mkdir -p dist
-          if [ -d "build/FreeCaster_artefacts/Release/VST3/FreeCaster.vst3" ]; then
-            cp -R build/FreeCaster_artefacts/Release/VST3/FreeCaster.vst3 dist/
+          if [ -d "FreeCaster_artefacts/Release/VST3/FreeCaster.vst3" ]; then
+            cp -R FreeCaster_artefacts/Release/VST3/FreeCaster.vst3 dist/
           fi
-          if [ -f "build/FreeCaster_artefacts/Release/Standalone/FreeCaster" ]; then
-            cp build/FreeCaster_artefacts/Release/Standalone/FreeCaster dist/
+          if [ -f "FreeCaster_artefacts/Release/Standalone/FreeCaster" ]; then
+            cp FreeCaster_artefacts/Release/Standalone/FreeCaster dist/
           fi
 
       - name: Verify distribution
