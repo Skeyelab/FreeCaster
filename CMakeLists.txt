@@ -5,6 +5,18 @@ project(FreeCaster VERSION 1.0.0)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+# Set architecture for macOS to match the host system
+if(APPLE AND NOT CMAKE_OSX_ARCHITECTURES)
+    # Use the host architecture by default
+    execute_process(
+        COMMAND uname -m
+        OUTPUT_VARIABLE HOST_ARCH
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+    )
+    set(CMAKE_OSX_ARCHITECTURES "${HOST_ARCH}" CACHE STRING "macOS architecture" FORCE)
+    message(STATUS "Building for macOS architecture: ${CMAKE_OSX_ARCHITECTURES}")
+endif()
+
 # Find OpenSSL for AirPlay authentication
 # On macOS, OpenSSL is typically installed via Homebrew in non-standard locations
 if(APPLE)

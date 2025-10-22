@@ -72,10 +72,10 @@ Tested on:
 
 1. **Environment variables**: `export OPENSSL_ROOT_DIR=/opt/homebrew/opt/openssl@3`
    - ❌ Requires users to set environment variables
-   
+
 2. **CMake command line**: `cmake -DOPENSSL_ROOT_DIR=/opt/homebrew/opt/openssl@3 ..`
    - ❌ Requires modifying CI/CD configuration
-   
+
 3. **pkg-config**: Using `pkg_search_module()` instead of `find_package()`
    - ❌ Additional dependency on pkg-config
 
@@ -104,6 +104,6 @@ Tested on:
 
 ---
 
-**Last Updated**: 2025-10-22  
+**Last Updated**: 2025-10-22
 **Status**: ✅ FIXED AND TESTED
 
