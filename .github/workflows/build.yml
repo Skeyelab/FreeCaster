@@ -28,15 +28,27 @@ jobs:
         uses: actions/cache@v4
         with:
           path: |
-            /var/cache/apt/archives/*.deb
-            /var/cache/apt/archives/*.tar.gz
-            /var/cache/apt/archives/*.tar.xz
+            ~/.cache/apt-packages/*.deb
+            ~/.cache/apt-packages/*.tar.gz
+            ~/.cache/apt-packages/*.tar.xz
           key: linux-apt-${{ hashFiles('.github/workflows/build.yml') }}
           restore-keys: |
             linux-apt-
 
       - name: Install Linux dependencies
         run: |
+          # Create apt cache directory if it doesn't exist
+          sudo mkdir -p /var/cache/apt/archives
+
+          # Copy cached packages to system location if cache was restored
+          if [ -d ~/.cache/apt-packages ]; then
+            echo "Restoring cached apt packages..."
+            sudo cp ~/.cache/apt-packages/*.deb /var/cache/apt/archives/ 2>/dev/null || true
+            sudo cp ~/.cache/apt-packages/*.tar.gz /var/cache/apt/archives/ 2>/dev/null || true
+            sudo cp ~/.cache/apt-packages/*.tar.xz /var/cache/apt/archives/ 2>/dev/null || true
+            echo "Cached packages restored"
+          fi
+
           sudo apt-get update
           sudo apt-get install -y \
             build-essential \
@@ -92,7 +104,7 @@ jobs:
           echo "Running FreeCaster unit tests..."
           cd build
           ./FreeCasterTests
-          
+
           if [ $? -eq 0 ]; then
             echo "✅ All tests passed!"
           else
@@ -145,6 +157,21 @@ jobs:
         with:
           name: linux-builds
           path: dist/
+
+      - name: Post Cache apt packages
+        if: always()
+        run: |
+          # Create cache directory
+          mkdir -p ~/.cache/apt-packages
+          
+          # Copy apt packages to cache directory for next run
+          if [ -d /var/cache/apt/archives ]; then
+            echo "Caching apt packages for next run..."
+            cp /var/cache/apt/archives/*.deb ~/.cache/apt-packages/ 2>/dev/null || true
+            cp /var/cache/apt/archives/*.tar.gz ~/.cache/apt-packages/ 2>/dev/null || true
+            cp /var/cache/apt/archives/*.tar.xz ~/.cache/apt-packages/ 2>/dev/null || true
+            echo "Apt packages cached"
+          fi
 
   build-macos:
     runs-on: macOS
