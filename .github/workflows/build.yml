@@ -27,7 +27,10 @@ jobs:
       - name: Cache apt packages
         uses: actions/cache@v4
         with:
-          path: /var/cache/apt/archives
+          path: |
+            /var/cache/apt/archives/*.deb
+            /var/cache/apt/archives/*.tar.gz
+            /var/cache/apt/archives/*.tar.xz
           key: linux-apt-${{ hashFiles('.github/workflows/build.yml') }}
           restore-keys: |
             linux-apt-
