@@ -75,7 +75,7 @@ bool RaopClient::isConnected() const
     return connected;
 }
 
-bool RaopClient::sendAudio(const juce::MemoryBlock& audioData, int sampleRate, int channels)
+bool RaopClient::sendAudio(const juce::MemoryBlock& audioData, int /*sampleRate*/, int channels)
 {
     if (!connected || !audioSocket || serverPort == 0)
         return false;
@@ -196,7 +196,7 @@ bool RaopClient::sendSetup()
             if (dashIndex > 0)
             {
                 serverPort = serverPortsStr.substring(0, dashIndex).getIntValue();
-                
+
                 // Extract control port with proper whitespace and parameter handling
                 juce::String controlPortStr = serverPortsStr.substring(dashIndex + 1);
                 int semicolonIndex = controlPortStr.indexOf(";");
@@ -289,7 +289,7 @@ bool RaopClient::sendRtpPacket(const void* data, size_t size)
     return audioSocket->write(currentDevice.getHostAddress(), serverPort, data, (int)size) == (int)size;
 }
 
-NTPTimestamp RaopClient::getCurrentNtpTimestamp() const
+RaopClient::NTPTimestamp RaopClient::getCurrentNtpTimestamp() const
 {
     // Convert current time to NTP timestamp (seconds since 1900)
     // NTP epoch is 1900, Unix epoch is 1970, so add 70 years worth of seconds
@@ -297,8 +297,8 @@ NTPTimestamp RaopClient::getCurrentNtpTimestamp() const
     juce::Time ntpEpoch(1900, 0, 1, 0, 0, 0, 0, false);
 
     double secondsSinceNtpEpoch = (currentTime.toMilliseconds() - ntpEpoch.toMilliseconds()) / 1000.0;
-    
-    NTPTimestamp ntp;
+
+    RaopClient::NTPTimestamp ntp;
     ntp.seconds = (uint32_t)secondsSinceNtpEpoch;
     ntp.fraction = (uint32_t)((secondsSinceNtpEpoch - ntp.seconds) * 0x100000000ULL);
     return ntp;
