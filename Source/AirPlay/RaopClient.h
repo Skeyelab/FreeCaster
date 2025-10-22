@@ -34,7 +34,19 @@ private:
         uint32_t fraction;
     };
 
-    bool sendRtspRequest(const juce::String& method, const juce::String& uri, const juce::StringPairArray& headers, juce::StringPairArray* responseHeaders = nullptr);
+    struct RtspResponse
+    {
+        int statusCode = 0;
+        juce::String statusMessage;
+        juce::StringPairArray headers;
+        juce::String body;
+        
+        bool isSuccess() const { return statusCode >= 200 && statusCode < 300; }
+    };
+
+    bool sendRtspRequest(const juce::String& method, const juce::String& uri, const juce::StringPairArray& headers, RtspResponse* response = nullptr);
+    bool parseRtspResponse(const juce::String& responseText, RtspResponse& response);
+    bool parseTransportHeader(const juce::String& transport, int& audioPort, int& controlPort, int& timingPort);
     bool sendSetup();
     bool sendRecord();
     bool sendTeardown();
