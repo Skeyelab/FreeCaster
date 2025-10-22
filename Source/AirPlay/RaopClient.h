@@ -1,6 +1,7 @@
 #pragma once
 #include <JuceHeader.h>
 #include "../Discovery/AirPlayDevice.h"
+#include "AirPlayAuth.h"
 
 class RaopClient
 {
@@ -15,6 +16,11 @@ public:
     bool sendAudio(const juce::MemoryBlock& audioData, int sampleRate, int channels);
 
     juce::String getLastError() const { return lastError; }
+
+    // Authentication support
+    void setPassword(const juce::String& password);
+    bool requiresAuthentication() const { return useAuthentication; }
+    void setUseAuthentication(bool enable) { useAuthentication = enable; }
 
 private:
     // RTP header structure (12 bytes)
@@ -45,8 +51,11 @@ private:
     };
 
     bool sendRtspRequest(const juce::String& method, const juce::String& uri, const juce::StringPairArray& headers, RtspResponse* response = nullptr);
+    bool sendRtspRequest(const juce::String& method, const juce::String& uri, const juce::StringPairArray& headers, const juce::String& body, RtspResponse* response = nullptr);
     bool parseRtspResponse(const juce::String& responseText, RtspResponse& response);
     bool parseTransportHeader(const juce::String& transport, int& audioPort, int& controlPort, int& timingPort);
+    bool sendOptions();
+    bool sendAnnounce();
     bool sendSetup();
     bool sendRecord();
     bool sendTeardown();
@@ -64,6 +73,11 @@ private:
     AirPlayDevice currentDevice;
     bool connected = false;
     juce::String lastError;
+
+    // Authentication
+    std::unique_ptr<AirPlayAuth> auth;
+    bool useAuthentication = true;  // Enable by default
+    int cseq = 1;  // RTSP sequence number
 
     // RTSP session info
     int serverPort = 0;

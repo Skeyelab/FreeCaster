@@ -5,6 +5,41 @@ project(FreeCaster VERSION 1.0.0)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+# Set architecture for macOS to match the host system
+if(APPLE AND NOT CMAKE_OSX_ARCHITECTURES)
+    # Use the host architecture by default
+    execute_process(
+        COMMAND uname -m
+        OUTPUT_VARIABLE HOST_ARCH
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+    )
+    set(CMAKE_OSX_ARCHITECTURES "${HOST_ARCH}" CACHE STRING "macOS architecture" FORCE)
+    message(STATUS "Building for macOS architecture: ${CMAKE_OSX_ARCHITECTURES}")
+endif()
+
+# Find OpenSSL for AirPlay authentication
+# On macOS, OpenSSL is typically installed via Homebrew in non-standard locations
+if(APPLE)
+    # Check common Homebrew locations for both Intel and Apple Silicon
+    if(EXISTS "/opt/homebrew/opt/openssl@3")
+        set(OPENSSL_ROOT_DIR "/opt/homebrew/opt/openssl@3")
+    elseif(EXISTS "/usr/local/opt/openssl@3")
+        set(OPENSSL_ROOT_DIR "/usr/local/opt/openssl@3")
+    elseif(EXISTS "/opt/homebrew/opt/openssl")
+        set(OPENSSL_ROOT_DIR "/opt/homebrew/opt/openssl")
+    elseif(EXISTS "/usr/local/opt/openssl")
+        set(OPENSSL_ROOT_DIR "/usr/local/opt/openssl")
+    endif()
+endif()
+
+find_package(OpenSSL REQUIRED)
+
+if(OPENSSL_FOUND)
+    message(STATUS "OpenSSL found: ${OPENSSL_VERSION}")
+    message(STATUS "  Include dir: ${OPENSSL_INCLUDE_DIR}")
+    message(STATUS "  Libraries: ${OPENSSL_LIBRARIES}")
+endif()
+
 include(FetchContent)
 FetchContent_Declare(
     JUCE
@@ -43,6 +78,7 @@ target_sources(FreeCaster
         Source/PluginProcessor.cpp
         Source/PluginEditor.cpp
         Source/AirPlay/AirPlayManager.cpp
+        Source/AirPlay/AirPlayAuth.cpp
         Source/AirPlay/RaopClient.cpp
         Source/Discovery/DeviceDiscovery.cpp
         Source/Discovery/AirPlayDevice.cpp
@@ -62,11 +98,24 @@ if(APPLE)
         "-framework CoreAudio"
         "-framework Network"
         "-framework Foundation"
+        OpenSSL::SSL
+        OpenSSL::Crypto
     )
 elseif(WIN32)
-    target_link_libraries(FreeCaster PRIVATE ws2_32 dnsapi iphlpapi)
+    target_link_libraries(FreeCaster PRIVATE 
+        ws2_32 
+        dnsapi 
+        iphlpapi
+        OpenSSL::SSL
+        OpenSSL::Crypto
+    )
 else()
-    target_link_libraries(FreeCaster PRIVATE avahi-client avahi-common)
+    target_link_libraries(FreeCaster PRIVATE 
+        avahi-client 
+        avahi-common
+        OpenSSL::SSL
+        OpenSSL::Crypto
+    )
 endif()
 
 target_compile_definitions(FreeCaster
