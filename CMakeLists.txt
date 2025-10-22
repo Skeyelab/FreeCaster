@@ -6,7 +6,27 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # Find OpenSSL for AirPlay authentication
+# On macOS, OpenSSL is typically installed via Homebrew in non-standard locations
+if(APPLE)
+    # Check common Homebrew locations for both Intel and Apple Silicon
+    if(EXISTS "/opt/homebrew/opt/openssl@3")
+        set(OPENSSL_ROOT_DIR "/opt/homebrew/opt/openssl@3")
+    elseif(EXISTS "/usr/local/opt/openssl@3")
+        set(OPENSSL_ROOT_DIR "/usr/local/opt/openssl@3")
+    elseif(EXISTS "/opt/homebrew/opt/openssl")
+        set(OPENSSL_ROOT_DIR "/opt/homebrew/opt/openssl")
+    elseif(EXISTS "/usr/local/opt/openssl")
+        set(OPENSSL_ROOT_DIR "/usr/local/opt/openssl")
+    endif()
+endif()
+
 find_package(OpenSSL REQUIRED)
+
+if(OPENSSL_FOUND)
+    message(STATUS "OpenSSL found: ${OPENSSL_VERSION}")
+    message(STATUS "  Include dir: ${OPENSSL_INCLUDE_DIR}")
+    message(STATUS "  Libraries: ${OPENSSL_LIBRARIES}")
+endif()
 
 include(FetchContent)
 FetchContent_Declare(
