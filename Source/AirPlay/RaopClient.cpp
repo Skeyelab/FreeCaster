@@ -81,15 +81,16 @@ bool RaopClient::sendAudio(const juce::MemoryBlock& audioData, int sampleRate, i
         return false;
 
     // Calculate RTP timestamp increment based on sample rate
-    // For 44.1kHz audio, timestamp increases by 352.8 per packet (assuming 1024 samples)
-    // We'll use sampleRate / 1000 * samplesPerPacket for timestamp increment
+    // RTP timestamps increment at the sample rate, so increment by samples per packet
     const int samplesPerPacket = audioData.getSize() / (channels * 2); // 16-bit samples
     const uint32_t timestampIncrement = samplesPerPacket;
 
     // Build RTP header
     RTPHeader header;
     header.version_flags = 0x80;  // Version 2, no padding, no extension, no CSRC
-    header.payload_type = 0x60;   // Apple Lossless payload type (96)
+    // Set marker bit for first packet or based on stream requirements
+    bool markerBit = (sequenceNumber == 0);
+    header.payload_type = 0x60 | (markerBit ? 0x80 : 0x00);  // Apple Lossless payload type (96) with marker bit
     header.sequence_number = juce::ByteOrder::swapIfBigEndian(sequenceNumber);
     header.timestamp = juce::ByteOrder::swapIfBigEndian(rtpTimestamp);
     header.ssrc = juce::ByteOrder::swapIfBigEndian(ssrc);
@@ -195,20 +196,34 @@ bool RaopClient::sendSetup()
             if (dashIndex > 0)
             {
                 serverPort = serverPortsStr.substring(0, dashIndex).getIntValue();
-                controlPort = serverPortsStr.substring(dashIndex + 1).getIntValue();
+                
+                // Extract control port with proper whitespace and parameter handling
+                juce::String controlPortStr = serverPortsStr.substring(dashIndex + 1);
+                int semicolonIndex = controlPortStr.indexOf(";");
+                int spaceIndex = controlPortStr.indexOfChar(' ');
+                int endIndex = -1;
+                if (semicolonIndex >= 0 && spaceIndex >= 0)
+                    endIndex = juce::jmin(semicolonIndex, spaceIndex);
+                else if (semicolonIndex >= 0)
+                    endIndex = semicolonIndex;
+                else if (spaceIndex >= 0)
+                    endIndex = spaceIndex;
+                if (endIndex > 0)
+                    controlPortStr = controlPortStr.substring(0, endIndex);
+                controlPortStr = controlPortStr.trim();
+                controlPort = controlPortStr.getIntValue();
             }
         }
 
-        // Extract session ID
-        int sessionIndex = transportResponse.indexOf("session=");
-        if (sessionIndex >= 0)
+        // Extract session ID from Session header
+        juce::String sessionHeader = responseHeaders["Session"];
+        if (sessionHeader.isNotEmpty())
         {
-            juce::String sessionStr = transportResponse.substring(sessionIndex + 8);
-            int semicolonIndex = sessionStr.indexOf(";");
+            int semicolonIndex = sessionHeader.indexOf(";");
             if (semicolonIndex > 0)
-                session = sessionStr.substring(0, semicolonIndex);
+                session = sessionHeader.substring(0, semicolonIndex);
             else
-                session = sessionStr;
+                session = sessionHeader;
         }
     }
 
@@ -274,7 +289,7 @@ bool RaopClient::sendRtpPacket(const void* data, size_t size)
     return audioSocket->write(currentDevice.getHostAddress(), serverPort, data, (int)size) == (int)size;
 }
 
-uint32_t RaopClient::getCurrentNtpTimestamp() const
+NTPTimestamp RaopClient::getCurrentNtpTimestamp() const
 {
     // Convert current time to NTP timestamp (seconds since 1900)
     // NTP epoch is 1900, Unix epoch is 1970, so add 70 years worth of seconds
@@ -282,5 +297,9 @@ uint32_t RaopClient::getCurrentNtpTimestamp() const
     juce::Time ntpEpoch(1900, 0, 1, 0, 0, 0, 0, false);
 
     double secondsSinceNtpEpoch = (currentTime.toMilliseconds() - ntpEpoch.toMilliseconds()) / 1000.0;
-    return (uint32_t)secondsSinceNtpEpoch;
+    
+    NTPTimestamp ntp;
+    ntp.seconds = (uint32_t)secondsSinceNtpEpoch;
+    ntp.fraction = (uint32_t)((secondsSinceNtpEpoch - ntp.seconds) * 0x100000000ULL);
+    return ntp;
 }

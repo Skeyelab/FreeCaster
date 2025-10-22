@@ -42,7 +42,7 @@ private:
     bool createUdpSockets();
     void closeUdpSockets();
     bool sendRtpPacket(const void* data, size_t size);
-    uint32_t getCurrentNtpTimestamp() const;
+    NTPTimestamp getCurrentNtpTimestamp() const;
 
     std::unique_ptr<juce::StreamingSocket> socket;
     std::unique_ptr<juce::DatagramSocket> audioSocket;
