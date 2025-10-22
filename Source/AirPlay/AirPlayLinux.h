@@ -1,7 +1,5 @@
 #pragma once
 
-#if JUCE_LINUX
-
 #include "AirPlayManager.h"
 #include "RaopClient.h"
 #include "../Audio/AudioEncoder.h"
@@ -22,5 +20,3 @@ private:
     std::unique_ptr<RaopClient> raopClient;
     std::unique_ptr<AudioEncoder> encoder;
 };
-
-#endif
