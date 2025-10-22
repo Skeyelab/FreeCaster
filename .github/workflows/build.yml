@@ -8,7 +8,7 @@ on:
 
 jobs:
   build-linux:
-    runs-on: ubuntu-24.04
+    runs-on: [self-hosted, ubuntu-24.04]
     if: true  # Enabled for Linux builds
     steps:
       - name: Checkout code
@@ -117,7 +117,7 @@ jobs:
       - name: Build macOS Plugin
         run: |
           echo "Building FreeCaster plugin..."
-          
+
           # Detect architecture
           ARCH=$(uname -m)
           echo "Building for architecture: $ARCH"
