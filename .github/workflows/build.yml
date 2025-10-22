@@ -33,7 +33,9 @@ jobs:
             libxrandr-dev \
             libxcursor-dev \
             libxcomposite-dev \
-            libgtk-3-dev
+            libgtk-3-dev \
+            libavahi-client-dev \
+            libavahi-common-dev
 
       - name: Verify dependencies
         run: |
@@ -43,6 +45,8 @@ jobs:
           pkg-config --exists freetype2 && echo "✓ FreeType2" || echo "✗ FreeType2"
           pkg-config --exists gl && echo "✓ OpenGL" || echo "✗ OpenGL"
           pkg-config --exists libcurl && echo "✓ cURL" || echo "✗ cURL"
+          pkg-config --exists avahi-client && echo "✓ Avahi Client" || echo "✗ Avahi Client"
+          pkg-config --exists avahi-common && echo "✓ Avahi Common" || echo "✗ Avahi Common"
           cmake --version
           gcc --version
 
@@ -55,13 +59,33 @@ jobs:
       - name: Create clean distribution
         run: |
           echo "Creating clean distribution for Linux..."
+          # Debug: Check what's actually in the directory
+          echo "Current directory contents:"
+          ls -la
+          echo ""
+          echo "Looking for FreeCaster_artefacts directory:"
+          find . -name "FreeCaster_artefacts" -type d 2>/dev/null || echo "Not found"
+          echo ""
+          echo "Looking for VST3 files:"
+          find . -name "FreeCaster.vst3" -type d 2>/dev/null || echo "Not found"
+          echo ""
+          echo "Looking for Standalone files:"
+          find . -name "FreeCaster" -type f 2>/dev/null || echo "Not found"
+          echo ""
+
           # For Linux, we'll create a simple distribution from the build artifacts
           mkdir -p dist
           if [ -d "build/FreeCaster_artefacts/VST3/FreeCaster.vst3" ]; then
+            echo "Found VST3 plugin, copying..."
             cp -R build/FreeCaster_artefacts/VST3/FreeCaster.vst3 dist/
+          else
+            echo "VST3 plugin not found at expected location"
           fi
           if [ -f "build/FreeCaster_artefacts/Standalone/FreeCaster" ]; then
+            echo "Found Standalone plugin, copying..."
             cp build/FreeCaster_artefacts/Standalone/FreeCaster dist/
+          else
+            echo "Standalone plugin not found at expected location"
           fi
 
       - name: Verify distribution
@@ -168,21 +192,21 @@ jobs:
           fi
 
           # Sign AU component
-          if [ -d "build/FreeCaster_artefacts/AU/FreeCaster.component" ]; then
+          if [ -d "build/FreeCaster_artefacts/Release/AU/FreeCaster.component" ]; then
               echo "  - Signing AU component..."
-              sign_bundle "build/FreeCaster_artefacts/AU/FreeCaster.component"
+              sign_bundle "build/FreeCaster_artefacts/Release/AU/FreeCaster.component"
           fi
 
           # Sign VST3 plugin
-          if [ -d "build/FreeCaster_artefacts/VST3/FreeCaster.vst3" ]; then
+          if [ -d "build/FreeCaster_artefacts/Release/VST3/FreeCaster.vst3" ]; then
               echo "  - Signing VST3 plugin..."
-              sign_bundle "build/FreeCaster_artefacts/VST3/FreeCaster.vst3"
+              sign_bundle "build/FreeCaster_artefacts/Release/VST3/FreeCaster.vst3"
           fi
 
           # Sign standalone application
-          if [ -d "build/FreeCaster_artefacts/Standalone/FreeCaster.app" ]; then
+          if [ -d "build/FreeCaster_artefacts/Release/Standalone/FreeCaster.app" ]; then
               echo "  - Signing standalone application..."
-              sign_bundle "build/FreeCaster_artefacts/Standalone/FreeCaster.app"
+              sign_bundle "build/FreeCaster_artefacts/Release/Standalone/FreeCaster.app"
           fi
 
       - name: Notarize macOS Plugin
@@ -194,6 +218,7 @@ jobs:
           notarize_bundle() {
               local bundle_path="$1"
               local bundle_name=$(basename "$bundle_path")
+              local original_dir=$(pwd)
 
               echo "  📦 Creating zip for notarization: $bundle_name"
 
@@ -229,9 +254,11 @@ jobs:
                   if [ "$notarization_success" -gt 0 ] && [ ! -z "$submission_id" ]; then
                       echo "  ✅ Notarization completed for $bundle_name (ID: $submission_id)"
 
-                      # Staple the notarization ticket
-                      echo "  📎 Stapling notarization ticket to $bundle_name..."
-                      xcrun stapler staple "$bundle_path"
+          # Staple the notarization ticket
+          echo "  📎 Stapling notarization ticket to $bundle_name..."
+          # Return to original directory for stapling
+          cd "$original_dir"
+          xcrun stapler staple "$bundle_path"
 
                       if [ $? -eq 0 ]; then
                           echo "  ✅ Successfully stapled notarization to $bundle_name"
@@ -271,35 +298,35 @@ jobs:
           echo "  ✅ Notarization credentials available"
 
           # Notarize AU component
-          if [ -d "build/FreeCaster_artefacts/AU/FreeCaster.component" ]; then
+          if [ -d "build/FreeCaster_artefacts/Release/AU/FreeCaster.component" ]; then
               echo "  - Notarizing AU component..."
-              notarize_bundle "build/FreeCaster_artefacts/AU/FreeCaster.component"
+              notarize_bundle "build/FreeCaster_artefacts/Release/AU/FreeCaster.component"
           fi
 
           # Notarize VST3 plugin
-          if [ -d "build/FreeCaster_artefacts/VST3/FreeCaster.vst3" ]; then
+          if [ -d "build/FreeCaster_artefacts/Release/VST3/FreeCaster.vst3" ]; then
               echo "  - Notarizing VST3 plugin..."
-              notarize_bundle "build/FreeCaster_artefacts/VST3/FreeCaster.vst3"
+              notarize_bundle "build/FreeCaster_artefacts/Release/VST3/FreeCaster.vst3"
           fi
 
           # Notarize standalone application
-          if [ -d "build/FreeCaster_artefacts/Standalone/FreeCaster.app" ]; then
+          if [ -d "build/FreeCaster_artefacts/Release/Standalone/FreeCaster.app" ]; then
               echo "  - Notarizing standalone application..."
-              notarize_bundle "build/FreeCaster_artefacts/Standalone/FreeCaster.app"
+              notarize_bundle "build/FreeCaster_artefacts/Release/Standalone/FreeCaster.app"
           fi
 
       - name: Create clean distribution
         run: |
           echo "Creating clean distribution for macOS..."
           mkdir -p dist
-          if [ -d "build/FreeCaster_artefacts/AU/FreeCaster.component" ]; then
-            cp -R build/FreeCaster_artefacts/AU/FreeCaster.component dist/
+          if [ -d "build/FreeCaster_artefacts/Release/AU/FreeCaster.component" ]; then
+            cp -R build/FreeCaster_artefacts/Release/AU/FreeCaster.component dist/
           fi
-          if [ -d "build/FreeCaster_artefacts/VST3/FreeCaster.vst3" ]; then
-            cp -R build/FreeCaster_artefacts/VST3/FreeCaster.vst3 dist/
+          if [ -d "build/FreeCaster_artefacts/Release/VST3/FreeCaster.vst3" ]; then
+            cp -R build/FreeCaster_artefacts/Release/VST3/FreeCaster.vst3 dist/
           fi
-          if [ -d "build/FreeCaster_artefacts/Standalone/FreeCaster.app" ]; then
-            cp -R build/FreeCaster_artefacts/Standalone/FreeCaster.app dist/
+          if [ -d "build/FreeCaster_artefacts/Release/Standalone/FreeCaster.app" ]; then
+            cp -R build/FreeCaster_artefacts/Release/Standalone/FreeCaster.app dist/
           fi
 
       - name: Verify distribution
@@ -327,7 +354,7 @@ jobs:
 
   build-windows:
     runs-on: Windows
-    if: true  # Enabled for Windows builds
+    if: false  # Disabled for now - Windows runner not available
     steps:
       - name: Checkout code
         uses: actions/checkout@v4

@@ -1,5 +1,3 @@
-#if JUCE_LINUX
-
 #include "AirPlayLinux.h"
 
 AirPlayLinux::AirPlayLinux()
@@ -33,7 +31,7 @@ bool AirPlayLinux::streamAudio(const juce::AudioBuffer<float>& buffer, int numSa
 {
     if (!isConnected())
         return false;
-    
+
     auto encodedData = encoder->encode(buffer, numSamples);
     return raopClient->sendAudio(encodedData, 44100, buffer.getNumChannels());
 }
@@ -42,5 +40,3 @@ juce::String AirPlayLinux::getLastError() const
 {
     return raopClient->getLastError();
 }
-
-#endif
