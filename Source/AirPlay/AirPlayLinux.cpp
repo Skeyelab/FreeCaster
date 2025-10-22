@@ -31,7 +31,7 @@ bool AirPlayLinux::streamAudio(const juce::AudioBuffer<float>& buffer, int numSa
 {
     if (!isConnected())
         return false;
-    
+
     auto encodedData = encoder->encode(buffer, numSamples);
     return raopClient->sendAudio(encodedData, 44100, buffer.getNumChannels());
 }
