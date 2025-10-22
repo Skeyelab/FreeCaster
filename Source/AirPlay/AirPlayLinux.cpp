@@ -1,5 +1,3 @@
-#if JUCE_LINUX
-
 #include "AirPlayLinux.h"
 
 AirPlayLinux::AirPlayLinux()
@@ -42,5 +40,3 @@ juce::String AirPlayLinux::getLastError() const
 {
     return raopClient->getLastError();
 }
-
-#endif
