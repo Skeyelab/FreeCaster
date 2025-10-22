@@ -331,7 +331,7 @@ jobs:
 
   build-windows:
     runs-on: Windows
-    if: true  # Enabled for Windows builds
+    if: false  # Disabled for now - Windows runner not available
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
