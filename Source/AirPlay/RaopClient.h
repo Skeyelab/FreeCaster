@@ -22,6 +22,20 @@ public:
     bool requiresAuthentication() const { return useAuthentication; }
     void setUseAuthentication(bool enable) { useAuthentication = enable; }
 
+    // Public for testing
+    struct RtspResponse
+    {
+        int statusCode = 0;
+        juce::String statusMessage;
+        juce::StringPairArray headers;
+        juce::String body;
+        
+        bool isSuccess() const { return statusCode >= 200 && statusCode < 300; }
+    };
+    
+    bool parseRtspResponse(const juce::String& responseText, RtspResponse& response);
+    bool parseTransportHeader(const juce::String& transport, int& audioPort, int& controlPort, int& timingPort);
+
 private:
     // RTP header structure (12 bytes)
     struct RTPHeader
@@ -40,20 +54,8 @@ private:
         uint32_t fraction;
     };
 
-    struct RtspResponse
-    {
-        int statusCode = 0;
-        juce::String statusMessage;
-        juce::StringPairArray headers;
-        juce::String body;
-        
-        bool isSuccess() const { return statusCode >= 200 && statusCode < 300; }
-    };
-
     bool sendRtspRequest(const juce::String& method, const juce::String& uri, const juce::StringPairArray& headers, RtspResponse* response = nullptr);
     bool sendRtspRequest(const juce::String& method, const juce::String& uri, const juce::StringPairArray& headers, const juce::String& body, RtspResponse* response = nullptr);
-    bool parseRtspResponse(const juce::String& responseText, RtspResponse& response);
-    bool parseTransportHeader(const juce::String& transport, int& audioPort, int& controlPort, int& timingPort);
     bool sendOptions();
     bool sendAnnounce();
     bool sendSetup();
