@@ -117,9 +117,13 @@ jobs:
       - name: Build macOS Plugin
         run: |
           echo "Building FreeCaster plugin..."
+          
+          # Detect architecture
+          ARCH=$(uname -m)
+          echo "Building for architecture: $ARCH"
 
-          # Configure with CMake
-          cmake -B build -DCMAKE_BUILD_TYPE=Release
+          # Configure with CMake - explicitly set architecture
+          cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES=$ARCH
 
           # Build the project
           cmake --build build --config Release
