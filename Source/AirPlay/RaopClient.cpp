@@ -122,7 +122,7 @@ bool RaopClient::sendAudio(const juce::MemoryBlock& audioData, int /*sampleRate*
 }
 
 bool RaopClient::sendRtspRequest(const juce::String& method, const juce::String& uri,
-                                  const juce::StringPairArray& headers, juce::StringPairArray* responseHeaders)
+                                  const juce::StringPairArray& headers, RtspResponse* response)
 {
     juce::String request = method + " " + uri + " RTSP/1.0\r\n";
 
@@ -133,38 +133,155 @@ bool RaopClient::sendRtspRequest(const juce::String& method, const juce::String&
 
     int sent = socket->write(request.toRawUTF8(), request.length());
     if (sent != request.length())
+    {
+        lastError = "Failed to send RTSP request";
         return false;
+    }
 
-    // Read response if headers are requested
-    if (responseHeaders != nullptr)
+    // Read response if requested
+    if (response != nullptr)
     {
         char buffer[4096];
         int bytesRead = socket->read(buffer, sizeof(buffer) - 1, false);
         if (bytesRead <= 0)
+        {
+            lastError = "Failed to read RTSP response";
             return false;
+        }
 
         buffer[bytesRead] = '\0';
-        juce::String response(buffer);
+        juce::String responseText(buffer);
 
-        // Parse response headers
-        juce::StringArray lines = juce::StringArray::fromLines(response);
-        for (int i = 1; i < lines.size(); ++i) // Skip status line
+        if (!parseRtspResponse(responseText, *response))
         {
-            juce::String line = lines[i].trim();
-            if (line.isEmpty())
-                break;
+            lastError = "Failed to parse RTSP response";
+            return false;
+        }
 
-            int colonIndex = line.indexOf(":");
-            if (colonIndex > 0)
-            {
-                juce::String key = line.substring(0, colonIndex).trim();
-                juce::String value = line.substring(colonIndex + 1).trim();
-                responseHeaders->set(key, value);
-            }
+        if (!response->isSuccess())
+        {
+            lastError = "RTSP request failed: " + juce::String(response->statusCode) + " " + response->statusMessage;
+            return false;
         }
     }
 
     return true;
+}
+
+bool RaopClient::parseRtspResponse(const juce::String& responseText, RtspResponse& response)
+{
+    juce::StringArray lines = juce::StringArray::fromLines(responseText);
+    if (lines.isEmpty())
+        return false;
+
+    // Parse status line: RTSP/1.0 200 OK
+    juce::String statusLine = lines[0].trim();
+    juce::StringArray statusParts;
+    statusParts.addTokens(statusLine, " ", "");
+    
+    if (statusParts.size() < 2)
+        return false;
+
+    response.statusCode = statusParts[1].getIntValue();
+    if (statusParts.size() >= 3)
+        response.statusMessage = statusLine.fromFirstOccurrenceOf(statusParts[1], false, false).trim();
+
+    // Parse headers
+    int i = 1;
+    for (; i < lines.size(); ++i)
+    {
+        juce::String line = lines[i].trim();
+        if (line.isEmpty())
+        {
+            i++; // Move past the empty line
+            break;
+        }
+
+        int colonIndex = line.indexOf(":");
+        if (colonIndex > 0)
+        {
+            juce::String key = line.substring(0, colonIndex).trim();
+            juce::String value = line.substring(colonIndex + 1).trim();
+            response.headers.set(key, value);
+        }
+    }
+
+    // Parse body (if any)
+    if (i < lines.size())
+    {
+        juce::String bodyLines;
+        for (; i < lines.size(); ++i)
+            bodyLines += lines[i] + "\n";
+        response.body = bodyLines.trim();
+    }
+
+    return true;
+}
+
+bool RaopClient::parseTransportHeader(const juce::String& transport, int& audioPort, int& controlPort, int& timingPort)
+{
+    // Example: RTP/AVP/UDP;unicast;server_port=6000-6001;control_port=6001;timing_port=6002
+    // or: RTP/AVP/UDP;unicast;server_port=6000-6001
+    
+    audioPort = 0;
+    controlPort = 0;
+    timingPort = 0;
+
+    // Parse server_port parameter
+    int serverPortIndex = transport.indexOf("server_port=");
+    if (serverPortIndex >= 0)
+    {
+        juce::String serverPortsStr = transport.substring(serverPortIndex + 12);
+        int dashIndex = serverPortsStr.indexOf("-");
+        
+        if (dashIndex > 0)
+        {
+            // Extract audio port
+            audioPort = serverPortsStr.substring(0, dashIndex).getIntValue();
+            
+            // Extract control port
+            juce::String controlPortStr = serverPortsStr.substring(dashIndex + 1);
+            int semicolonIndex = controlPortStr.indexOf(";");
+            int spaceIndex = controlPortStr.indexOfChar(' ');
+            int endIndex = -1;
+            
+            if (semicolonIndex >= 0 && spaceIndex >= 0)
+                endIndex = juce::jmin(semicolonIndex, spaceIndex);
+            else if (semicolonIndex >= 0)
+                endIndex = semicolonIndex;
+            else if (spaceIndex >= 0)
+                endIndex = spaceIndex;
+            
+            if (endIndex > 0)
+                controlPortStr = controlPortStr.substring(0, endIndex);
+            
+            controlPort = controlPortStr.trim().getIntValue();
+        }
+    }
+
+    // Parse timing_port parameter (if present)
+    int timingPortIndex = transport.indexOf("timing_port=");
+    if (timingPortIndex >= 0)
+    {
+        juce::String timingPortStr = transport.substring(timingPortIndex + 12);
+        int semicolonIndex = timingPortStr.indexOf(";");
+        int spaceIndex = timingPortStr.indexOfChar(' ');
+        
+        if (semicolonIndex > 0)
+            timingPortStr = timingPortStr.substring(0, semicolonIndex);
+        else if (spaceIndex > 0)
+            timingPortStr = timingPortStr.substring(0, spaceIndex);
+        
+        timingPort = timingPortStr.trim().getIntValue();
+    }
+    // Some servers might specify timing port as the third port in server_port range
+    else if (audioPort > 0 && controlPort > 0)
+    {
+        // Timing port is typically control port + 1 if not specified
+        timingPort = controlPort + 1;
+    }
+
+    return audioPort > 0 && controlPort > 0;
 }
 
 bool RaopClient::sendSetup()
@@ -179,52 +296,38 @@ bool RaopClient::sendSetup()
 
     headers.set("Transport", transport);
 
-    juce::StringPairArray responseHeaders;
-    if (!sendRtspRequest("SETUP", "rtsp://" + currentDevice.getHostAddress() + "/stream", headers, &responseHeaders))
+    RtspResponse response;
+    if (!sendRtspRequest("SETUP", "rtsp://" + currentDevice.getHostAddress() + "/stream", headers, &response))
         return false;
 
-    // Parse server ports from Transport header
-    juce::String transportResponse = responseHeaders["Transport"];
-    if (transportResponse.isNotEmpty())
+    // Parse Transport header for server ports
+    juce::String transportResponse = response.headers["Transport"];
+    if (transportResponse.isEmpty())
     {
-        // Look for server_port=xxxx-yyyy
-        int serverPortIndex = transportResponse.indexOf("server_port=");
-        if (serverPortIndex >= 0)
-        {
-            juce::String serverPortsStr = transportResponse.substring(serverPortIndex + 12);
-            int dashIndex = serverPortsStr.indexOf("-");
-            if (dashIndex > 0)
-            {
-                serverPort = serverPortsStr.substring(0, dashIndex).getIntValue();
+        lastError = "Server did not provide Transport header in SETUP response";
+        return false;
+    }
 
-                // Extract control port with proper whitespace and parameter handling
-                juce::String controlPortStr = serverPortsStr.substring(dashIndex + 1);
-                int semicolonIndex = controlPortStr.indexOf(";");
-                int spaceIndex = controlPortStr.indexOfChar(' ');
-                int endIndex = -1;
-                if (semicolonIndex >= 0 && spaceIndex >= 0)
-                    endIndex = juce::jmin(semicolonIndex, spaceIndex);
-                else if (semicolonIndex >= 0)
-                    endIndex = semicolonIndex;
-                else if (spaceIndex >= 0)
-                    endIndex = spaceIndex;
-                if (endIndex > 0)
-                    controlPortStr = controlPortStr.substring(0, endIndex);
-                controlPortStr = controlPortStr.trim();
-                controlPort = controlPortStr.getIntValue();
-            }
-        }
+    if (!parseTransportHeader(transportResponse, serverPort, controlPort, timingPort))
+    {
+        lastError = "Failed to parse server ports from Transport header";
+        return false;
+    }
 
-        // Extract session ID from Session header
-        juce::String sessionHeader = responseHeaders["Session"];
-        if (sessionHeader.isNotEmpty())
-        {
-            int semicolonIndex = sessionHeader.indexOf(";");
-            if (semicolonIndex > 0)
-                session = sessionHeader.substring(0, semicolonIndex);
-            else
-                session = sessionHeader;
-        }
+    // Extract session ID from Session header
+    juce::String sessionHeader = response.headers["Session"];
+    if (sessionHeader.isNotEmpty())
+    {
+        int semicolonIndex = sessionHeader.indexOf(";");
+        if (semicolonIndex > 0)
+            session = sessionHeader.substring(0, semicolonIndex).trim();
+        else
+            session = sessionHeader.trim();
+    }
+    else
+    {
+        lastError = "Server did not provide Session ID in SETUP response";
+        return false;
     }
 
     return true;
