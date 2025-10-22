@@ -14,6 +14,24 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Cache CMake build
+        uses: actions/cache@v4
+        with:
+          path: |
+            build
+            ~/.cache/ccache
+          key: linux-cmake-${{ hashFiles('CMakeLists.txt', 'Source/**') }}
+          restore-keys: |
+            linux-cmake-
+
+      - name: Cache apt packages
+        uses: actions/cache@v4
+        with:
+          path: /var/cache/apt/archives
+          key: linux-apt-${{ hashFiles('.github/workflows/build.yml') }}
+          restore-keys: |
+            linux-apt-
+
       - name: Install Linux dependencies
         run: |
           sudo apt-get update
@@ -115,6 +133,17 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Cache CMake build
+        uses: actions/cache@v4
+        with:
+          path: |
+            build
+            ~/Library/Caches/ccache
+          key: macos-cmake-${{ runner.arch }}-${{ hashFiles('CMakeLists.txt', 'Source/**') }}
+          restore-keys: |
+            macos-cmake-${{ runner.arch }}-
+            macos-cmake-
 
       - name: Build macOS Plugin
         run: |
@@ -370,6 +399,16 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Cache CMake build
+        uses: actions/cache@v4
+        with:
+          path: |
+            build
+            ~\AppData\Local\ccache
+          key: windows-cmake-${{ hashFiles('CMakeLists.txt', 'Source/**') }}
+          restore-keys: |
+            windows-cmake-
 
       - name: Build Windows Plugin
         shell: cmd
