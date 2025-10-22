@@ -84,7 +84,7 @@ bool RaopClient::sendAudio(const juce::MemoryBlock& audioData, int sampleRate, i
     // For 44.1kHz audio, timestamp increases by 352.8 per packet (assuming 1024 samples)
     // We'll use sampleRate / 1000 * samplesPerPacket for timestamp increment
     const int samplesPerPacket = audioData.getSize() / (channels * 2); // 16-bit samples
-    const uint32_t timestampIncrement = (uint32_t)((double)sampleRate / 1000.0 * samplesPerPacket);
+    const uint32_t timestampIncrement = samplesPerPacket;
 
     // Build RTP header
     RTPHeader header;
