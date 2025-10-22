@@ -59,13 +59,33 @@ jobs:
       - name: Create clean distribution
         run: |
           echo "Creating clean distribution for Linux..."
+          # Debug: Check what's actually in the directory
+          echo "Current directory contents:"
+          ls -la
+          echo ""
+          echo "Looking for FreeCaster_artefacts directory:"
+          find . -name "FreeCaster_artefacts" -type d 2>/dev/null || echo "Not found"
+          echo ""
+          echo "Looking for VST3 files:"
+          find . -name "FreeCaster.vst3" -type d 2>/dev/null || echo "Not found"
+          echo ""
+          echo "Looking for Standalone files:"
+          find . -name "FreeCaster" -type f 2>/dev/null || echo "Not found"
+          echo ""
+          
           # For Linux, we'll create a simple distribution from the build artifacts
           mkdir -p dist
           if [ -d "FreeCaster_artefacts/Release/VST3/FreeCaster.vst3" ]; then
+            echo "Found VST3 plugin, copying..."
             cp -R FreeCaster_artefacts/Release/VST3/FreeCaster.vst3 dist/
+          else
+            echo "VST3 plugin not found at expected location"
           fi
           if [ -f "FreeCaster_artefacts/Release/Standalone/FreeCaster" ]; then
+            echo "Found Standalone plugin, copying..."
             cp FreeCaster_artefacts/Release/Standalone/FreeCaster dist/
+          else
+            echo "Standalone plugin not found at expected location"
           fi
 
       - name: Verify distribution
@@ -198,6 +218,7 @@ jobs:
           notarize_bundle() {
               local bundle_path="$1"
               local bundle_name=$(basename "$bundle_path")
+              local original_dir=$(pwd)
 
               echo "  📦 Creating zip for notarization: $bundle_name"
 
@@ -233,9 +254,11 @@ jobs:
                   if [ "$notarization_success" -gt 0 ] && [ ! -z "$submission_id" ]; then
                       echo "  ✅ Notarization completed for $bundle_name (ID: $submission_id)"
 
-                      # Staple the notarization ticket
-                      echo "  📎 Stapling notarization ticket to $bundle_name..."
-                      xcrun stapler staple "$bundle_path"
+          # Staple the notarization ticket
+          echo "  📎 Stapling notarization ticket to $bundle_name..."
+          # Return to original directory for stapling
+          cd "$original_dir"
+          xcrun stapler staple "$bundle_path"
 
                       if [ $? -eq 0 ]; then
                           echo "  ✅ Successfully stapled notarization to $bundle_name"
