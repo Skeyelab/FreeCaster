@@ -1,4 +1,4 @@
-name: Build FreeCaster 
+name: Build FreeCaster
 
 on:
   push:
@@ -35,7 +35,8 @@ jobs:
             libxcomposite-dev \
             libgtk-3-dev \
             libavahi-client-dev \
-            libavahi-common-dev
+            libavahi-common-dev \
+            libssl-dev
 
       - name: Verify dependencies
         run: |
@@ -47,6 +48,7 @@ jobs:
           pkg-config --exists libcurl && echo "✓ cURL" || echo "✗ cURL"
           pkg-config --exists avahi-client && echo "✓ Avahi Client" || echo "✗ Avahi Client"
           pkg-config --exists avahi-common && echo "✓ Avahi Common" || echo "✗ Avahi Common"
+          pkg-config --exists openssl && echo "✓ OpenSSL" || echo "✗ OpenSSL"
           cmake --version
           gcc --version
 
