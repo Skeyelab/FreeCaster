@@ -267,9 +267,9 @@ bool RaopClient::parseTransportHeader(const juce::String& transport, int& audioP
         int semicolonIndex = timingPortStr.indexOf(";");
         int spaceIndex = timingPortStr.indexOfChar(' ');
         
-        if (semicolonIndex > 0)
+        if (semicolonIndex >= 0)
             timingPortStr = timingPortStr.substring(0, semicolonIndex);
-        else if (spaceIndex > 0)
+        else if (spaceIndex >= 0)
             timingPortStr = timingPortStr.substring(0, spaceIndex);
         
         timingPort = timingPortStr.trim().getIntValue();
@@ -277,7 +277,10 @@ bool RaopClient::parseTransportHeader(const juce::String& transport, int& audioP
     // Some servers might specify timing port as the third port in server_port range
     else if (audioPort > 0 && controlPort > 0)
     {
-        // Timing port is typically control port + 1 if not specified
+        // Default timing port to control port + 1 if not explicitly specified.
+        // This follows the common RAOP/AirPlay convention where ports are allocated
+        // sequentially: audio (N), control (N+1), timing (N+2).
+        // Reference: Apple's RAOP protocol implementation
         timingPort = controlPort + 1;
     }
 
