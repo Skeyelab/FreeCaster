@@ -5,6 +5,9 @@ project(FreeCaster VERSION 1.0.0)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+# Find OpenSSL for AirPlay authentication
+find_package(OpenSSL REQUIRED)
+
 include(FetchContent)
 FetchContent_Declare(
     JUCE
@@ -43,6 +46,7 @@ target_sources(FreeCaster
         Source/PluginProcessor.cpp
         Source/PluginEditor.cpp
         Source/AirPlay/AirPlayManager.cpp
+        Source/AirPlay/AirPlayAuth.cpp
         Source/AirPlay/RaopClient.cpp
         Source/Discovery/DeviceDiscovery.cpp
         Source/Discovery/AirPlayDevice.cpp
@@ -62,11 +66,24 @@ if(APPLE)
         "-framework CoreAudio"
         "-framework Network"
         "-framework Foundation"
+        OpenSSL::SSL
+        OpenSSL::Crypto
     )
 elseif(WIN32)
-    target_link_libraries(FreeCaster PRIVATE ws2_32 dnsapi iphlpapi)
+    target_link_libraries(FreeCaster PRIVATE 
+        ws2_32 
+        dnsapi 
+        iphlpapi
+        OpenSSL::SSL
+        OpenSSL::Crypto
+    )
 else()
-    target_link_libraries(FreeCaster PRIVATE avahi-client avahi-common)
+    target_link_libraries(FreeCaster PRIVATE 
+        avahi-client 
+        avahi-common
+        OpenSSL::SSL
+        OpenSSL::Crypto
+    )
 endif()
 
 target_compile_definitions(FreeCaster

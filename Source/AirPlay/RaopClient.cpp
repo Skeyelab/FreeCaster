@@ -6,6 +6,7 @@ RaopClient::RaopClient()
     audioSocket = std::make_unique<juce::DatagramSocket>();
     controlSocket = std::make_unique<juce::DatagramSocket>();
     timingSocket = std::make_unique<juce::DatagramSocket>();
+    auth = std::make_unique<AirPlayAuth>();
 
     // Initialize random SSRC
     juce::Random random;
@@ -23,6 +24,23 @@ bool RaopClient::connect(const AirPlayDevice& device)
         disconnect();
 
     currentDevice = device;
+    cseq = 1;  // Reset sequence number
+
+    // Initialize authentication if enabled
+    if (useAuthentication)
+    {
+        if (!auth->initialize())
+        {
+            lastError = "Failed to initialize authentication: " + auth->getLastError();
+            return false;
+        }
+
+        // Set device password if required
+        if (device.requiresPassword())
+        {
+            auth->setPassword(device.getPassword());
+        }
+    }
 
     // Create UDP sockets first
     if (!createUdpSockets())
@@ -42,6 +60,22 @@ bool RaopClient::connect(const AirPlayDevice& device)
     startTime = juce::Time::getCurrentTime();
     sequenceNumber = 0;
     rtpTimestamp = 0;
+
+    // Perform RTSP handshake with authentication
+    if (useAuthentication)
+    {
+        if (!sendOptions())
+        {
+            disconnect();
+            return false;
+        }
+
+        if (!sendAnnounce())
+        {
+            disconnect();
+            return false;
+        }
+    }
 
     if (!sendSetup())
     {
@@ -124,12 +158,28 @@ bool RaopClient::sendAudio(const juce::MemoryBlock& audioData, int /*sampleRate*
 bool RaopClient::sendRtspRequest(const juce::String& method, const juce::String& uri,
                                   const juce::StringPairArray& headers, RtspResponse* response)
 {
+    return sendRtspRequest(method, uri, headers, juce::String(), response);
+}
+
+bool RaopClient::sendRtspRequest(const juce::String& method, const juce::String& uri,
+                                  const juce::StringPairArray& headers, const juce::String& body,
+                                  RtspResponse* response)
+{
     juce::String request = method + " " + uri + " RTSP/1.0\r\n";
 
     for (int i = 0; i < headers.size(); ++i)
         request += headers.getAllKeys()[i] + ": " + headers.getAllValues()[i] + "\r\n";
 
+    // Add body if present
+    if (body.isNotEmpty())
+    {
+        request += "Content-Length: " + juce::String(body.length()) + "\r\n";
+    }
+
     request += "\r\n";
+
+    if (body.isNotEmpty())
+        request += body;
 
     int sent = socket->write(request.toRawUTF8(), request.length());
     if (sent != request.length())
@@ -287,10 +337,82 @@ bool RaopClient::parseTransportHeader(const juce::String& transport, int& audioP
     return audioPort > 0 && controlPort > 0;
 }
 
+bool RaopClient::sendOptions()
+{
+    juce::StringPairArray headers;
+    headers.set("CSeq", juce::String(cseq++));
+    headers.set("User-Agent", "FreeCaster/1.0");
+
+    // Add Apple-Challenge for authentication
+    if (useAuthentication && auth->isInitialized())
+    {
+        juce::String challenge = auth->generateChallenge();
+        if (challenge.isNotEmpty())
+            headers.set("Apple-Challenge", challenge);
+    }
+
+    RtspResponse response;
+    if (!sendRtspRequest("OPTIONS", "*", headers, &response))
+        return false;
+
+    // Verify Apple-Response if authentication is enabled
+    if (useAuthentication && response.headers.containsKey("Apple-Response"))
+    {
+        juce::String appleResponse = response.headers["Apple-Response"];
+        if (!auth->verifyResponse(appleResponse, "", currentDevice.getHostAddress()))
+        {
+            lastError = "Authentication failed: Invalid Apple-Response";
+            return false;
+        }
+    }
+
+    return true;
+}
+
+bool RaopClient::sendAnnounce()
+{
+    juce::StringPairArray headers;
+    headers.set("CSeq", juce::String(cseq++));
+    headers.set("Content-Type", "application/sdp");
+    headers.set("User-Agent", "FreeCaster/1.0");
+
+    // Build SDP (Session Description Protocol) body
+    juce::String sdp;
+    sdp += "v=0\r\n";
+    sdp += "o=FreeCaster 0 0 IN IP4 127.0.0.1\r\n";
+    sdp += "s=FreeCaster Audio Stream\r\n";
+    sdp += "c=IN IP4 " + currentDevice.getHostAddress() + "\r\n";
+    sdp += "t=0 0\r\n";
+    
+    // Media description
+    sdp += "m=audio 0 RTP/AVP 96\r\n";
+    sdp += "a=rtpmap:96 AppleLossless\r\n";
+    sdp += "a=fmtp:96 352 0 16 40 10 14 2 255 0 0 44100\r\n";
+
+    // Add RSA public key for encryption (AES-RSA)
+    if (useAuthentication && auth->isInitialized())
+    {
+        juce::String publicKey = auth->getPublicKeyBase64();
+        if (publicKey.isNotEmpty())
+        {
+            sdp += "a=rsaaeskey:" + publicKey + "\r\n";
+        }
+
+        // Add AES IV (initialization vector)
+        // For now, use a simple IV - in production this should be random
+        juce::String aesIV = "AAAAAAAAAAAAAAAAAAAAAA==";  // Base64 encoded zeros
+        sdp += "a=aesiv:" + aesIV + "\r\n";
+    }
+
+    RtspResponse response;
+    return sendRtspRequest("ANNOUNCE", "rtsp://" + currentDevice.getHostAddress() + "/stream",
+                          headers, sdp, &response);
+}
+
 bool RaopClient::sendSetup()
 {
     juce::StringPairArray headers;
-    headers.set("CSeq", "1");
+    headers.set("CSeq", juce::String(cseq++));
 
     // Specify client UDP ports for server to send to
     juce::String transport = "RTP/AVP/UDP;unicast;interleaved=0-1;mode=record;";
@@ -339,9 +461,12 @@ bool RaopClient::sendSetup()
 bool RaopClient::sendRecord()
 {
     juce::StringPairArray headers;
-    headers.set("CSeq", "2");
+    headers.set("CSeq", juce::String(cseq++));
     headers.set("Range", "npt=0-");
     headers.set("RTP-Info", "seq=0;rtptime=0");
+    
+    if (session.isNotEmpty())
+        headers.set("Session", session);
 
     return sendRtspRequest("RECORD", "rtsp://" + currentDevice.getHostAddress() + "/stream", headers);
 }
@@ -349,7 +474,10 @@ bool RaopClient::sendRecord()
 bool RaopClient::sendTeardown()
 {
     juce::StringPairArray headers;
-    headers.set("CSeq", "3");
+    headers.set("CSeq", juce::String(cseq++));
+    
+    if (session.isNotEmpty())
+        headers.set("Session", session);
 
     return sendRtspRequest("TEARDOWN", "rtsp://" + currentDevice.getHostAddress() + "/stream", headers);
 }
@@ -408,4 +536,10 @@ RaopClient::NTPTimestamp RaopClient::getCurrentNtpTimestamp() const
     ntp.seconds = (uint32_t)secondsSinceNtpEpoch;
     ntp.fraction = (uint32_t)((secondsSinceNtpEpoch - ntp.seconds) * 0x100000000ULL);
     return ntp;
+}
+
+void RaopClient::setPassword(const juce::String& password)
+{
+    if (auth)
+        auth->setPassword(password);
 }
