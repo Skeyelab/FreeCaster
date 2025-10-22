@@ -72,18 +72,18 @@ jobs:
           echo "Looking for Standalone files:"
           find . -name "FreeCaster" -type f 2>/dev/null || echo "Not found"
           echo ""
-          
+
           # For Linux, we'll create a simple distribution from the build artifacts
           mkdir -p dist
-          if [ -d "FreeCaster_artefacts/Release/VST3/FreeCaster.vst3" ]; then
+          if [ -d "build/FreeCaster_artefacts/VST3/FreeCaster.vst3" ]; then
             echo "Found VST3 plugin, copying..."
-            cp -R FreeCaster_artefacts/Release/VST3/FreeCaster.vst3 dist/
+            cp -R build/FreeCaster_artefacts/VST3/FreeCaster.vst3 dist/
           else
             echo "VST3 plugin not found at expected location"
           fi
-          if [ -f "FreeCaster_artefacts/Release/Standalone/FreeCaster" ]; then
+          if [ -f "build/FreeCaster_artefacts/Standalone/FreeCaster" ]; then
             echo "Found Standalone plugin, copying..."
-            cp FreeCaster_artefacts/Release/Standalone/FreeCaster dist/
+            cp build/FreeCaster_artefacts/Standalone/FreeCaster dist/
           else
             echo "Standalone plugin not found at expected location"
           fi
