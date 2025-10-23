@@ -102,16 +102,16 @@ if(APPLE)
         OpenSSL::Crypto
     )
 elseif(WIN32)
-    target_link_libraries(FreeCaster PRIVATE 
-        ws2_32 
-        dnsapi 
+    target_link_libraries(FreeCaster PRIVATE
+        ws2_32
+        dnsapi
         iphlpapi
         OpenSSL::SSL
         OpenSSL::Crypto
     )
 else()
-    target_link_libraries(FreeCaster PRIVATE 
-        avahi-client 
+    target_link_libraries(FreeCaster PRIVATE
+        avahi-client
         avahi-common
         OpenSSL::SSL
         OpenSSL::Crypto
