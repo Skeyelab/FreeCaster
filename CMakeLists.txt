@@ -136,3 +136,38 @@ target_link_libraries(FreeCaster
         juce::juce_recommended_lto_flags
         juce::juce_recommended_warning_flags
 )
+
+# ============================================================================
+# FreeCaster Unit Tests
+# ============================================================================
+
+add_executable(FreeCasterTests
+    Tests/TestMain.cpp
+    Tests/RaopClientTests.cpp
+    Tests/StreamBufferTests.cpp
+    Tests/AudioEncoderTests.cpp
+    Tests/AirPlayDeviceTests.cpp
+    # Reuse source files without GUI
+    Source/AirPlay/RaopClient.cpp
+    Source/AirPlay/AirPlayAuth.cpp
+    Source/Audio/StreamBuffer.cpp
+    Source/Audio/AudioEncoder.cpp
+    Source/Discovery/AirPlayDevice.cpp
+)
+
+target_link_libraries(FreeCasterTests PRIVATE
+    juce::juce_audio_basics
+    juce::juce_core
+    juce::juce_events
+    juce::juce_graphics
+    OpenSSL::SSL
+    OpenSSL::Crypto
+)
+
+target_include_directories(FreeCasterTests PRIVATE Source)
+
+target_compile_definitions(FreeCasterTests
+    PUBLIC
+        JUCE_WEB_BROWSER=0
+        JUCE_USE_CURL=0
+)
