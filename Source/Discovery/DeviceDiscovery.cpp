@@ -3,7 +3,7 @@
 
 DeviceDiscovery::DeviceDiscovery() : Thread("AirPlayDiscovery")
 {
-#if JUCE_MAC
+#if JUCE_MAC || JUCE_WINDOWS || JUCE_LINUX
     platformImpl = std::make_unique<PlatformImpl>(this);
 #endif
 }
@@ -16,7 +16,7 @@ DeviceDiscovery::~DeviceDiscovery()
 
 void DeviceDiscovery::startDiscovery()
 {
-#if JUCE_MAC
+#if JUCE_MAC || JUCE_WINDOWS || JUCE_LINUX
     if (platformImpl)
         platformImpl->start();
 #endif
@@ -27,7 +27,7 @@ void DeviceDiscovery::startDiscovery()
 
 void DeviceDiscovery::stopDiscovery()
 {
-#if JUCE_MAC
+#if JUCE_MAC || JUCE_WINDOWS || JUCE_LINUX
     if (platformImpl)
         platformImpl->stop();
 #endif

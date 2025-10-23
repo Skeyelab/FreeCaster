@@ -100,6 +100,10 @@ target_sources(FreeCaster
 # Add platform-specific discovery
 if(APPLE)
     target_sources(FreeCaster PRIVATE Source/Discovery/DeviceDiscoveryMac.mm)
+elseif(WIN32)
+    target_sources(FreeCaster PRIVATE Source/Discovery/DeviceDiscoveryWindows.cpp)
+else()
+    target_sources(FreeCaster PRIVATE Source/Discovery/DeviceDiscoveryLinux.cpp)
 endif()
 
 if(APPLE)
