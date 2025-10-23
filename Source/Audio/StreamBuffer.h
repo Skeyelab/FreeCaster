@@ -13,10 +13,21 @@ public:
     int getAvailableData() const;
     void clear();
     
+    // Buffer health monitoring
+    bool isOverflowing() const;
+    bool isUnderflowing() const;
+    float getUsagePercentage() const;
+    int getOverflowCount() const { return overflowCount; }
+    int getUnderflowCount() const { return underflowCount; }
+    
 private:
     juce::AudioBuffer<float> buffer;
     int writePos = 0;
     int readPos = 0;
     int numStored = 0;
     juce::CriticalSection bufferLock;
+    
+    // Monitoring
+    std::atomic<int> overflowCount{0};
+    std::atomic<int> underflowCount{0};
 };

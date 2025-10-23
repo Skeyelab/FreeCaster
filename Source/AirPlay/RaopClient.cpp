@@ -23,6 +23,11 @@ bool RaopClient::connect(const AirPlayDevice& device)
     if (connected)
         disconnect();
 
+    setConnectionState(ConnectionState::Connecting);
+    lastConnectionAttemptTime = juce::Time::currentTimeMillis();
+    consecutiveFailures = 0;
+    reconnectAttempts = 0;
+    
     currentDevice = device;
     cseq = 1;  // Reset sequence number
 
@@ -49,9 +54,23 @@ bool RaopClient::connect(const AirPlayDevice& device)
         return false;
     }
 
-    if (!socket->connect(device.getHostAddress(), device.getPort(), 5000))
+    // Try to connect with timeout
+    if (!socket->connect(device.getHostAddress(), device.getPort(), 10000))
     {
         lastError = "Failed to connect to " + device.getHostAddress();
+        logError(lastError);
+        setConnectionState(ConnectionState::TimedOut);
+        closeUdpSockets();
+        return false;
+    }
+    
+    // Verify socket is ready
+    if (!waitForSocketReady(socket.get(), 5000))
+    {
+        lastError = "Connection timeout - device not responding";
+        logError(lastError);
+        setConnectionState(ConnectionState::TimedOut);
+        socket->close();
         closeUdpSockets();
         return false;
     }
@@ -90,17 +109,26 @@ bool RaopClient::connect(const AirPlayDevice& device)
     }
 
     connected = true;
+    setConnectionState(ConnectionState::Connected);
+    lastSuccessfulSendTime = juce::Time::currentTimeMillis();
+    consecutiveFailures = 0;
+    reconnectAttempts = 0;
+    DBG("RaopClient: Successfully connected to " + device.getDeviceName());
     return true;
 }
 
 void RaopClient::disconnect()
 {
+    const juce::ScopedLock sl(stateLock);
+    
     if (connected)
     {
         sendTeardown();
         socket->close();
         closeUdpSockets();
         connected = false;
+        setConnectionState(ConnectionState::Disconnected);
+        DBG("RaopClient: Disconnected from " + currentDevice.getDeviceName());
     }
 }
 
@@ -112,7 +140,15 @@ bool RaopClient::isConnected() const
 bool RaopClient::sendAudio(const juce::MemoryBlock& audioData, int /*sampleRate*/, int channels)
 {
     if (!connected || !audioSocket || serverPort == 0)
+    {
+        consecutiveFailures++;
+        if (consecutiveFailures > maxConsecutiveFailures && autoReconnectEnabled)
+        {
+            logError("Too many consecutive send failures, attempting reconnect");
+            attemptReconnect();
+        }
         return false;
+    }
 
     // Calculate RTP timestamp increment based on sample rate
     // RTP timestamps increment at the sample rate, so increment by samples per packet
@@ -145,12 +181,26 @@ bool RaopClient::sendAudio(const juce::MemoryBlock& audioData, int /*sampleRate*
     if (!sendRtpPacket(packet.getData(), packetSize))
     {
         lastError = "Failed to send RTP packet";
+        consecutiveFailures++;
+        
+        if (consecutiveFailures > maxConsecutiveFailures)
+        {
+            logError("Network send failure detected, marking connection as error");
+            setConnectionState(ConnectionState::Error);
+            
+            if (autoReconnectEnabled)
+            {
+                attemptReconnect();
+            }
+        }
         return false;
     }
 
     // Update sequence number and timestamp for next packet
     sequenceNumber++;
     rtpTimestamp += timestampIncrement;
+    lastSuccessfulSendTime = juce::Time::currentTimeMillis();
+    consecutiveFailures = 0;  // Reset on successful send
 
     return true;
 }
@@ -542,4 +592,129 @@ void RaopClient::setPassword(const juce::String& password)
 {
     if (auth)
         auth->setPassword(password);
+}
+
+// Connection state management
+void RaopClient::setConnectionState(ConnectionState newState)
+{
+    if (connectionState != newState)
+    {
+        connectionState = newState;
+        DBG("RaopClient: Connection state changed to " + getConnectionStateString());
+    }
+}
+
+juce::String RaopClient::getConnectionStateString() const
+{
+    switch (connectionState)
+    {
+        case ConnectionState::Disconnected: return "Disconnected";
+        case ConnectionState::Connecting: return "Connecting...";
+        case ConnectionState::Connected: return "Connected";
+        case ConnectionState::Reconnecting: return "Reconnecting...";
+        case ConnectionState::Error: return "Error";
+        case ConnectionState::TimedOut: return "Connection Timed Out";
+        default: return "Unknown";
+    }
+}
+
+// Auto-reconnect logic
+bool RaopClient::attemptReconnect()
+{
+    if (!autoReconnectEnabled || reconnectAttempts >= maxReconnectAttempts)
+    {
+        if (reconnectAttempts >= maxReconnectAttempts)
+        {
+            logError("Maximum reconnection attempts reached");
+            setConnectionState(ConnectionState::Error);
+        }
+        return false;
+    }
+    
+    // Exponential backoff: 1s, 2s, 4s, 8s, 16s
+    int backoffMs = (1 << reconnectAttempts) * 1000;
+    juce::int64 timeSinceLastAttempt = juce::Time::currentTimeMillis() - lastConnectionAttemptTime;
+    
+    if (timeSinceLastAttempt < backoffMs)
+    {
+        return false;  // Too soon to retry
+    }
+    
+    reconnectAttempts++;
+    setConnectionState(ConnectionState::Reconnecting);
+    logError("Attempting reconnection (" + juce::String(reconnectAttempts) + "/" + 
+             juce::String(maxReconnectAttempts) + ")");
+    
+    // Try to reconnect
+    if (connect(currentDevice))
+    {
+        logError("Reconnection successful");
+        reconnectAttempts = 0;
+        return true;
+    }
+    
+    return false;
+}
+
+// Connection health check
+bool RaopClient::checkConnection()
+{
+    if (!connected)
+        return false;
+    
+    // Check if connection has been idle too long (no successful sends)
+    juce::int64 timeSinceLastSend = juce::Time::currentTimeMillis() - lastSuccessfulSendTime;
+    if (timeSinceLastSend > 30000)  // 30 seconds
+    {
+        logError("Connection appears stale (no activity for 30s)");
+        setConnectionState(ConnectionState::Error);
+        
+        if (autoReconnectEnabled)
+        {
+            return attemptReconnect();
+        }
+        return false;
+    }
+    
+    // Check socket status
+    if (!socket || !socket->isConnected())
+    {
+        logError("Socket disconnected");
+        connected = false;
+        setConnectionState(ConnectionState::Error);
+        
+        if (autoReconnectEnabled)
+        {
+            return attemptReconnect();
+        }
+        return false;
+    }
+    
+    return true;
+}
+
+// Error logging
+void RaopClient::logError(const juce::String& error)
+{
+    DBG("RaopClient ERROR: " + error);
+    juce::Logger::writeToLog("[RaopClient] " + error);
+}
+
+// Wait for socket to be ready
+bool RaopClient::waitForSocketReady(juce::StreamingSocket* sock, int timeoutMs)
+{
+    if (!sock || !sock->isConnected())
+        return false;
+    
+    juce::int64 startTime = juce::Time::currentTimeMillis();
+    
+    while (juce::Time::currentTimeMillis() - startTime < timeoutMs)
+    {
+        if (sock->waitUntilReady(true, 100) == 1)
+            return true;
+        
+        juce::Thread::sleep(50);
+    }
+    
+    return false;
 }

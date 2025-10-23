@@ -6,16 +6,38 @@
 class RaopClient
 {
 public:
+    // Connection states
+    enum class ConnectionState
+    {
+        Disconnected,
+        Connecting,
+        Connected,
+        Reconnecting,
+        Error,
+        TimedOut
+    };
+
     RaopClient();
     ~RaopClient();
 
     bool connect(const AirPlayDevice& device);
     void disconnect();
     bool isConnected() const;
+    ConnectionState getConnectionState() const { return connectionState; }
+    juce::String getConnectionStateString() const;
 
     bool sendAudio(const juce::MemoryBlock& audioData, int sampleRate, int channels);
 
     juce::String getLastError() const { return lastError; }
+    
+    // Auto-reconnect settings
+    void setAutoReconnect(bool enable) { autoReconnectEnabled = enable; }
+    bool isAutoReconnectEnabled() const { return autoReconnectEnabled; }
+    
+    // Connection health monitoring
+    bool checkConnection();
+    juce::int64 getLastSuccessfulSendTime() const { return lastSuccessfulSendTime; }
+    int getConsecutiveFailures() const { return consecutiveFailures; }
 
     // Authentication support
     void setPassword(const juce::String& password);
@@ -37,6 +59,12 @@ public:
     bool parseTransportHeader(const juce::String& transport, int& audioPort, int& controlPort, int& timingPort);
 
 private:
+    // Connection management
+    void setConnectionState(ConnectionState newState);
+    bool attemptReconnect();
+    void logError(const juce::String& error);
+    bool waitForSocketReady(juce::StreamingSocket* sock, int timeoutMs);
+    
     // RTP header structure (12 bytes)
     struct RTPHeader
     {
@@ -74,7 +102,20 @@ private:
 
     AirPlayDevice currentDevice;
     bool connected = false;
+    ConnectionState connectionState = ConnectionState::Disconnected;
     juce::String lastError;
+    
+    // Reliability and monitoring
+    bool autoReconnectEnabled = true;
+    int reconnectAttempts = 0;
+    static constexpr int maxReconnectAttempts = 5;
+    juce::int64 lastSuccessfulSendTime = 0;
+    juce::int64 lastConnectionAttemptTime = 0;
+    int consecutiveFailures = 0;
+    static constexpr int maxConsecutiveFailures = 10;
+    
+    // Thread safety
+    juce::CriticalSection stateLock;
 
     // Authentication
     std::unique_ptr<AirPlayAuth> auth;
