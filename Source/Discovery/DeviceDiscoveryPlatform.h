@@ -1,5 +1,7 @@
 #pragma once
 
+#include <memory>
+
 class DeviceDiscovery;
 
 #if JUCE_MAC
@@ -15,9 +17,23 @@ struct DeviceDiscovery::PlatformImpl
     void stop();
 };
 
+#elif JUCE_WINDOWS || JUCE_LINUX
+
+// Windows/Linux implementation
+struct DeviceDiscovery::PlatformImpl
+{
+    void* impl;
+    
+    PlatformImpl(DeviceDiscovery* owner);
+    ~PlatformImpl();
+    
+    void start();
+    void stop();
+};
+
 #else
 
-// Placeholder for Windows/Linux
+// Fallback for unsupported platforms
 struct DeviceDiscovery::PlatformImpl
 {
     PlatformImpl(DeviceDiscovery*) {}
