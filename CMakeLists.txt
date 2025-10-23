@@ -163,6 +163,16 @@ add_executable(FreeCasterTests
     Source/AirPlay/AirPlayAuth.cpp
     Source/Audio/StreamBuffer.cpp
     Source/Audio/AudioEncoder.cpp
+    Source/Audio/ALACEncoderWrapper.cpp
+    Source/Audio/ALAC/ALACEncoder.cpp
+    Source/Audio/ALAC/ALACBitUtilities.c
+    Source/Audio/ALAC/ag_enc.c
+    Source/Audio/ALAC/ag_dec.c
+    Source/Audio/ALAC/dp_enc.c
+    Source/Audio/ALAC/dp_dec.c
+    Source/Audio/ALAC/matrix_enc.c
+    Source/Audio/ALAC/matrix_dec.c
+    Source/Audio/ALAC/EndianPortable.c
     Source/Discovery/AirPlayDevice.cpp
 )
 

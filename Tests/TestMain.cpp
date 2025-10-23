@@ -5,6 +5,7 @@
 #include "StreamBufferTests.cpp"
 #include "AudioEncoderTests.cpp"
 #include "AirPlayDeviceTests.cpp"
+#include "ErrorHandlingTests.cpp"
 
 int main(int argc, char* argv[])
 {
