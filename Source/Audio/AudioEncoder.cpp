@@ -1,12 +1,23 @@
 #include "AudioEncoder.h"
 
-AudioEncoder::AudioEncoder() {}
+AudioEncoder::AudioEncoder()
+{
+    alacEncoder = std::make_unique<ALACEncoderWrapper>();
+}
+
 AudioEncoder::~AudioEncoder() {}
 
 void AudioEncoder::prepare(double sampleRate, int samplesPerBlock)
 {
     currentSampleRate = sampleRate;
     currentSamplesPerBlock = samplesPerBlock;
+    
+    // Initialize ALAC encoder if it will be used
+    if (currentFormat == Format::ALAC && alacEncoder)
+    {
+        // Assuming stereo for now - this could be made configurable
+        alacInitialized = alacEncoder->initialize(sampleRate, 2, samplesPerBlock);
+    }
 }
 
 juce::MemoryBlock AudioEncoder::encode(const juce::AudioBuffer<float>& buffer, int numSamples)
@@ -27,6 +38,12 @@ juce::MemoryBlock AudioEncoder::encode(const juce::AudioBuffer<float>& buffer, i
 void AudioEncoder::setFormat(Format format)
 {
     currentFormat = format;
+    
+    // Re-initialize ALAC encoder if switching to ALAC format
+    if (currentFormat == Format::ALAC && alacEncoder)
+    {
+        alacInitialized = alacEncoder->initialize(currentSampleRate, 2, currentSamplesPerBlock);
+    }
 }
 
 juce::MemoryBlock AudioEncoder::encodePCM16(const juce::AudioBuffer<float>& buffer, int numSamples)
@@ -77,7 +94,18 @@ juce::MemoryBlock AudioEncoder::encodePCM24(const juce::AudioBuffer<float>& buff
 
 juce::MemoryBlock AudioEncoder::encodeALAC(const juce::AudioBuffer<float>& buffer, int numSamples)
 {
-    // ALAC encoding would require Apple's ALAC encoder library
-    // For now, fall back to PCM16
+    // Use Apple's ALAC encoder for lossless compression
+    if (alacEncoder && alacInitialized)
+    {
+        juce::MemoryBlock encoded = alacEncoder->encode(buffer, numSamples);
+        
+        // If encoding succeeded, return the compressed data
+        if (encoded.getSize() > 0)
+        {
+            return encoded;
+        }
+    }
+    
+    // Fall back to PCM16 if ALAC encoding fails or is not initialized
     return encodePCM16(buffer, numSamples);
 }

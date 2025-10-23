@@ -1,5 +1,7 @@
 #pragma once
 #include <JuceHeader.h>
+#include "ALACEncoderWrapper.h"
+#include <memory>
 
 class AudioEncoder
 {
@@ -24,6 +26,9 @@ private:
     Format currentFormat = Format::PCM_16;
     double currentSampleRate = 44100.0;
     int currentSamplesPerBlock = 512;
+    
+    std::unique_ptr<ALACEncoderWrapper> alacEncoder;
+    bool alacInitialized = false;
     
     juce::MemoryBlock encodePCM16(const juce::AudioBuffer<float>& buffer, int numSamples);
     juce::MemoryBlock encodePCM24(const juce::AudioBuffer<float>& buffer, int numSamples);
