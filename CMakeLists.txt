@@ -83,7 +83,17 @@ target_sources(FreeCaster
         Source/Discovery/DeviceDiscovery.cpp
         Source/Discovery/AirPlayDevice.cpp
         Source/Audio/AudioEncoder.cpp
+        Source/Audio/ALACEncoderWrapper.cpp
         Source/Audio/StreamBuffer.cpp
+        Source/Audio/ALAC/ALACEncoder.cpp
+        Source/Audio/ALAC/ALACBitUtilities.c
+        Source/Audio/ALAC/ag_enc.c
+        Source/Audio/ALAC/ag_dec.c
+        Source/Audio/ALAC/dp_enc.c
+        Source/Audio/ALAC/dp_dec.c
+        Source/Audio/ALAC/matrix_enc.c
+        Source/Audio/ALAC/matrix_dec.c
+        Source/Audio/ALAC/EndianPortable.c
         ${PLATFORM_SOURCES}
 )
 
@@ -135,4 +145,50 @@ target_link_libraries(FreeCaster
         juce::juce_recommended_config_flags
         juce::juce_recommended_lto_flags
         juce::juce_recommended_warning_flags
+)
+
+# ============================================================================
+# FreeCaster Unit Tests
+# ============================================================================
+
+add_executable(FreeCasterTests
+    Tests/TestMain.cpp
+    Tests/RaopClientTests.cpp
+    Tests/StreamBufferTests.cpp
+    Tests/AudioEncoderTests.cpp
+    Tests/AirPlayDeviceTests.cpp
+    Tests/ErrorHandlingTests.cpp
+    # Reuse source files without GUI
+    Source/AirPlay/RaopClient.cpp
+    Source/AirPlay/AirPlayAuth.cpp
+    Source/Audio/StreamBuffer.cpp
+    Source/Audio/AudioEncoder.cpp
+    Source/Audio/ALACEncoderWrapper.cpp
+    Source/Audio/ALAC/ALACEncoder.cpp
+    Source/Audio/ALAC/ALACBitUtilities.c
+    Source/Audio/ALAC/ag_enc.c
+    Source/Audio/ALAC/ag_dec.c
+    Source/Audio/ALAC/dp_enc.c
+    Source/Audio/ALAC/dp_dec.c
+    Source/Audio/ALAC/matrix_enc.c
+    Source/Audio/ALAC/matrix_dec.c
+    Source/Audio/ALAC/EndianPortable.c
+    Source/Discovery/AirPlayDevice.cpp
+)
+
+target_link_libraries(FreeCasterTests PRIVATE
+    juce::juce_audio_basics
+    juce::juce_core
+    juce::juce_events
+    juce::juce_graphics
+    OpenSSL::SSL
+    OpenSSL::Crypto
+)
+
+target_include_directories(FreeCasterTests PRIVATE Source)
+
+target_compile_definitions(FreeCasterTests
+    PUBLIC
+        JUCE_WEB_BROWSER=0
+        JUCE_USE_CURL=0
 )

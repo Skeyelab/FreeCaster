@@ -22,6 +22,10 @@ private:
     void updateDeviceList();
     void connectButtonClicked();
     void disconnectButtonClicked();
+    void updateStatusDisplay();
+    void updateBufferHealth();
+    void showError(const juce::String& error);
+    void showStatus(const juce::String& status);
     
     AirPlayPluginProcessor& audioProcessor;
     
@@ -33,6 +37,8 @@ private:
     juce::TextButton disconnectButton;
     juce::Label statusLabel;
     juce::Label titleLabel;
+    juce::Label errorLabel;
+    juce::Label bufferHealthLabel;
     
     class DeviceListModel : public juce::ListBoxModel
     {
