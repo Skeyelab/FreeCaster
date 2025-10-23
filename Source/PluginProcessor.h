@@ -39,9 +39,17 @@ public:
     AirPlayManager& getAirPlayManager() { return airPlayManager; }
     DeviceDiscovery& getDeviceDiscovery() { return deviceDiscovery; }
     
+    // Level meter accessors
+    float getInputLevel() const { return inputLevel.load(); }
+    float getOutputLevel() const { return outputLevel.load(); }
+    
 private:
     AirPlayManager airPlayManager;
     DeviceDiscovery deviceDiscovery;
+    
+    // Level tracking for meters (thread-safe)
+    std::atomic<float> inputLevel{ 0.0f };
+    std::atomic<float> outputLevel{ 0.0f };
     
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(AirPlayPluginProcessor)
 };

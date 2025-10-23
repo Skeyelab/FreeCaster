@@ -54,9 +54,40 @@ void AirPlayPluginProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce
 {
     juce::ScopedNoDenormals noDenormals;
     
+    // Calculate input level (RMS)
+    float inputRMS = 0.0f;
+    for (int channel = 0; channel < buffer.getNumChannels(); ++channel)
+    {
+        const float* channelData = buffer.getReadPointer(channel);
+        float channelRMS = 0.0f;
+        
+        for (int sample = 0; sample < buffer.getNumSamples(); ++sample)
+        {
+            channelRMS += channelData[sample] * channelData[sample];
+        }
+        
+        channelRMS = std::sqrt(channelRMS / buffer.getNumSamples());
+        inputRMS = juce::jmax(inputRMS, channelRMS);
+    }
+    
+    // Convert RMS to normalized level (0-1) with some headroom
+    // RMS of 0.7 (~-3dB) maps to full scale
+    float normalizedInput = juce::jlimit(0.0f, 1.0f, inputRMS / 0.7f);
+    inputLevel.store(normalizedInput);
+    
+    // Send to AirPlay if connected
     if (airPlayManager.isConnected())
     {
         airPlayManager.pushAudioData(buffer, buffer.getNumSamples());
+        
+        // Output level is the same as input for a pass-through plugin
+        // (In a real scenario with processing, this might differ)
+        outputLevel.store(normalizedInput);
+    }
+    else
+    {
+        // Reset output level when not connected
+        outputLevel.store(0.0f);
     }
 }
 
