@@ -157,6 +157,7 @@ add_executable(FreeCasterTests
     Tests/StreamBufferTests.cpp
     Tests/AudioEncoderTests.cpp
     Tests/AirPlayDeviceTests.cpp
+    Tests/ErrorHandlingTests.cpp
     # Reuse source files without GUI
     Source/AirPlay/RaopClient.cpp
     Source/AirPlay/AirPlayAuth.cpp
