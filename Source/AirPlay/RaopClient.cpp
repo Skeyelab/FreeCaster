@@ -41,13 +41,16 @@ bool RaopClient::connect(const AirPlayDevice& device)
         if (!auth->initialize())
         {
             lastError = "Failed to initialize authentication: " + auth->getLastError();
-            return false;
+            juce::Logger::writeToLog("RaopClient: Auth initialization failed, disabling auth");
+            useAuthentication = false;  // Disable auth if initialization fails
         }
-
-        // Set device password if required
-        if (device.requiresPassword())
+        else
         {
-            auth->setPassword(device.getPassword());
+            // Set device password if required
+            if (device.requiresPassword())
+            {
+                auth->setPassword(device.getPassword());
+            }
         }
     }
 
@@ -419,8 +422,8 @@ bool RaopClient::sendOptions()
     headers.set("CSeq", juce::String(cseq++));
     headers.set("User-Agent", "FreeCaster/1.0");
 
-    // Add Apple-Challenge for authentication
-    if (useAuthentication && auth->isInitialized())
+    // Add Apple-Challenge for authentication (skip if auth failed to initialize)
+    if (useAuthentication && auth && auth->isInitialized())
     {
         juce::String challenge = auth->generateChallenge();
         if (challenge.isNotEmpty())
@@ -431,25 +434,26 @@ bool RaopClient::sendOptions()
     if (!sendRtspRequest("OPTIONS", "*", headers, &response))
         return false;
 
-    // Log whether Apple-Response was received
-    if (useAuthentication)
+    // Check if device sent Apple-Response
+    bool deviceSupportsAuth = response.headers.containsKey("Apple-Response");
+    receivedAppleResponse = deviceSupportsAuth;
+    
+    if (deviceSupportsAuth)
     {
-        if (response.headers.containsKey("Apple-Response"))
+        juce::String appleResponse = response.headers["Apple-Response"];
+        juce::Logger::writeToLog("RaopClient: Received Apple-Response: " + appleResponse);
+        if (useAuthentication && auth && auth->isInitialized())
         {
-            juce::String appleResponse = response.headers["Apple-Response"];
-            juce::Logger::writeToLog("RaopClient: Received Apple-Response: " + appleResponse);
-            receivedAppleResponse = true;
             if (!auth->verifyResponse(appleResponse, "", currentDevice.getHostAddress()))
             {
                 lastError = "Authentication failed: Invalid Apple-Response";
                 return false;
             }
         }
-        else
-        {
-            juce::Logger::writeToLog("RaopClient: Device did not send Apple-Response (auth not required)");
-            receivedAppleResponse = false;
-        }
+    }
+    else
+    {
+        juce::Logger::writeToLog("RaopClient: Device did not send Apple-Response (auth not supported)");
     }
 
     return true;
@@ -478,7 +482,7 @@ bool RaopClient::sendAnnounce()
 
     // Add RSA public key for encryption (AES-RSA)
     // Most AirPlay devices require these fields even if they don't send Apple-Response
-    if (useAuthentication && auth->isInitialized())
+    if (useAuthentication && auth && auth->isInitialized())
     {
         juce::String publicKey = auth->getPublicKeyBase64();
         if (publicKey.isNotEmpty())
