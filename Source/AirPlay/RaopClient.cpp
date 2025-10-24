@@ -3,6 +3,7 @@
 #include <openssl/evp.h>
 #include <openssl/pem.h>
 #include <openssl/bio.h>
+#include <openssl/rsa.h>
 
 RaopClient::RaopClient()
 {
@@ -508,28 +509,58 @@ bool RaopClient::sendAnnounce()
     sdp += "a=rtpmap:96 AppleLossless\r\n";
     sdp += "a=fmtp:96 352 0 16 40 10 14 2 255 0 0 44100\r\n";
 
-    // Encrypt a fresh AES key using the receiver's public key if available
-    // Most AirPlay devices require these fields even if they don't send Apple-Response
+    // Generate proper RSA-OAEP encrypted AES session key for RAOP/AirPlay 1
     if (useAuthentication && auth && auth->isInitialized())
     {
         juce::String receiverPkBase64 = currentDevice.getServerPublicKey();
         juce::Logger::writeToLog("RaopClient: Server public key from TXT record: " + receiverPkBase64);
+        
         if (receiverPkBase64.isNotEmpty())
         {
-            // Try using the server public key directly as rsaaeskey
-            // Some AirPlay implementations expect the server's public key in rsaaeskey field
-            juce::Logger::writeToLog("RaopClient: Using server public key directly as rsaaeskey");
+            // Parse the server's public key from TXT record (hex string)
+            juce::MemoryBlock serverKeyData;
+            serverKeyData.loadFromHexString(receiverPkBase64);
             
-            // Generate random AES IV
-            juce::MemoryBlock aesIV(16);
-            RAND_bytes(static_cast<unsigned char*>(aesIV.getData()), 16);
-            juce::String aesivb64 = juce::Base64::toBase64(aesIV.getData(), (size_t)aesIV.getSize());
+            // Create RSA key from the hex data
+            const unsigned char* keyData = static_cast<const unsigned char*>(serverKeyData.getData());
+            RSA* rsa = d2i_RSAPublicKey(nullptr, &keyData, (long)serverKeyData.getSize());
             
-            // Use the server public key hex string directly as rsaaeskey
-            sdp += "a=rsaaeskey:" + receiverPkBase64 + "\r\n";
-            sdp += "a=aesiv:" + aesivb64 + "\r\n";
-            juce::Logger::writeToLog("RaopClient: Added server public key directly as rsaaeskey");
-
+            if (rsa)
+            {
+                juce::Logger::writeToLog("RaopClient: Successfully parsed server public key from hex");
+                
+                // Generate random 16-byte AES session key and IV
+                juce::MemoryBlock aesKey(16), aesIV(16);
+                RAND_bytes(static_cast<unsigned char*>(aesKey.getData()), 16);
+                RAND_bytes(static_cast<unsigned char*>(aesIV.getData()), 16);
+                
+                // Encrypt AES key with RSA-OAEP
+                juce::MemoryBlock encrypted(128); // 1024-bit RSA = 128 bytes ciphertext
+                int encryptedLen = RSA_public_encrypt(16, static_cast<unsigned char*>(aesKey.getData()),
+                                                    static_cast<unsigned char*>(encrypted.getData()),
+                                                    rsa, RSA_PKCS1_OAEP_PADDING);
+                
+                if (encryptedLen > 0)
+                {
+                    encrypted.setSize(encryptedLen);
+                    juce::String rsaaeskey = juce::Base64::toBase64(encrypted.getData(), (size_t)encrypted.getSize());
+                    juce::String aesiv = juce::Base64::toBase64(aesIV.getData(), (size_t)aesIV.getSize());
+                    
+                    sdp += "a=rsaaeskey:" + rsaaeskey + "\r\n";
+                    sdp += "a=aesiv:" + aesiv + "\r\n";
+                    juce::Logger::writeToLog("RaopClient: Added proper RSA-OAEP encrypted AES session key");
+                }
+                else
+                {
+                    juce::Logger::writeToLog("RaopClient: Failed to encrypt AES key with RSA-OAEP");
+                }
+                
+                RSA_free(rsa);
+            }
+            else
+            {
+                juce::Logger::writeToLog("RaopClient: Failed to parse server public key from hex");
+            }
         }
         else
         {
