@@ -10,7 +10,6 @@ class LevelMeter : public juce::Component
 public:
     LevelMeter()
     {
-        // Make sure the meter is visible
         setOpaque(true);
         setVisible(true);
     }
@@ -19,22 +18,20 @@ public:
     {
         auto bounds = getLocalBounds().toFloat();
 
-        // ALWAYS draw a visible background for debugging
-        g.fillAll(juce::Colour(0xFF3a3a3a));
+        // Draw background
+        g.setColour(juce::Colour(0xFF1a1a1a));
+        g.fillRoundedRectangle(bounds, 4.0f);
 
-        // Draw a bright border for visibility
-        g.setColour(juce::Colours::cyan);
-        g.drawRect(bounds, 3.0f);
-
-        // Draw scale markings on the meter itself
-        g.setColour(juce::Colour(0xFF606060));
-        g.setFont(8.0f);
-
+        // Draw scale markings
+        g.setColour(juce::Colour(0xFF404040));
+        g.setFont(9.0f);
         const float dbMarks[] = { 0.0f, -6.0f, -12.0f, -24.0f, -48.0f };
         for (auto db : dbMarks)
         {
             float yPos = dbToY(db, bounds.getHeight());
-            g.drawLine(2, yPos, 8, yPos, 1.0f);
+            g.drawLine(bounds.getX(), yPos, bounds.getX() + 3, yPos, 1.0f);
+            g.drawText(juce::String((int)db), bounds.getX() + bounds.getWidth() + 2, yPos - 6, 30, 12,
+                      juce::Justification::left, false);
         }
 
         // Calculate meter height
@@ -43,8 +40,7 @@ public:
 
         if (meterHeight > 0.0f)
         {
-            auto meterBounds = bounds.withTop(bounds.getBottom() - meterHeight).reduced(3.0f);
-
+            auto meterBounds = bounds.withTop(bounds.getBottom() - meterHeight).reduced(2.0f);
             // Color gradient based on level
             juce::ColourGradient gradient(
                 juce::Colour(0xFF00ff00), meterBounds.getX(), meterBounds.getBottom(),
@@ -56,23 +52,20 @@ public:
             gradient.addColour(1.0, juce::Colour(0xFFff0000));  // Red
 
             g.setGradientFill(gradient);
-            g.fillRect(meterBounds);
+            g.fillRoundedRectangle(meterBounds, 2.0f);
         }
-
         // Draw peak hold indicator
         if (peakLevel > 0.0f)
         {
             float peakY = bounds.getBottom() - peakHeight;
             g.setColour(peakLevel > 0.9f ? juce::Colours::red : juce::Colours::white);
-            g.fillRect(3.0f, peakY - 1, bounds.getWidth() - 6, 2.0f);
+            g.fillRect(bounds.getX() + 1, peakY - 1, bounds.getWidth() - 2, 2.0f);
         }
 
-        // Debug text
-        g.setColour(juce::Colours::white);
-        g.setFont(9.0f);
-        g.drawText(juce::String(currentLevel, 2), bounds.reduced(2), juce::Justification::centredTop, false);
+        // Draw border
+        g.setColour(juce::Colour(0xFF505050));
+        g.drawRoundedRectangle(bounds, 4.0f, 1.0f);
     }
-
     void setLevel(float newLevel)
     {
         // Convert to normalized 0-1 range (assuming input is in 0-1 linear amplitude)
@@ -98,7 +91,6 @@ public:
 
         repaint();
     }
-
     void reset()
     {
         currentLevel = 0.0f;
@@ -106,7 +98,6 @@ public:
         peakHoldCounter = 0;
         repaint();
     }
-
 private:
     float dbToY(float db, float height) const
     {
@@ -118,7 +109,6 @@ private:
     float currentLevel = 0.0f;
     float peakLevel = 0.0f;
     int peakHoldCounter = 0;
-
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(LevelMeter)
 };
 
@@ -167,7 +157,6 @@ private:
     juce::Label outputMeterLabel;
     juce::TextButton testAudioButton;
     float testLevel = 0.0f;
-
     class DeviceListModel : public juce::ListBoxModel
     {
     public:

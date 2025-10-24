@@ -49,10 +49,6 @@ AirPlayPluginEditor::AirPlayPluginEditor(AirPlayPluginProcessor& p)
     addAndMakeVisible(inputMeter);
     addAndMakeVisible(outputMeter);
 
-    // Ensure meters are visible
-    inputMeter.setVisible(true);
-    outputMeter.setVisible(true);
-
     inputMeterLabel.setText("Input", juce::dontSendNotification);
     inputMeterLabel.setJustificationType(juce::Justification::centred);
     inputMeterLabel.setFont(juce::Font(11.0f));
@@ -139,15 +135,6 @@ void AirPlayPluginEditor::resized()
 
     outputMeterLabel.setBounds(outputMeterArea.removeFromTop(20));
     outputMeter.setBounds(outputMeterArea); // Use remaining height
-
-    // Debug: Log meter bounds
-    DBG("=== RESIZE DEBUG ===");
-    DBG("Window size: " + juce::String(getWidth()) + "x" + juce::String(getHeight()));
-    DBG("Input meter bounds: " + inputMeter.getBounds().toString());
-    DBG("Output meter bounds: " + outputMeter.getBounds().toString());
-    DBG("Input meter visible: " + juce::String(inputMeter.isVisible()));
-    DBG("Output meter visible: " + juce::String(outputMeter.isVisible()));
-    DBG("Meters area initial: " + juce::String(metersArea.getWidth()) + "x" + juce::String(metersArea.getHeight()));
 }
 
 void AirPlayPluginEditor::timerCallback()
@@ -161,14 +148,6 @@ void AirPlayPluginEditor::timerCallback()
 
     inputMeter.setLevel(inputLevel);
     outputMeter.setLevel(outputLevel);
-
-    // Debug: Log levels occasionally
-    static int debugCounter = 0;
-    if (++debugCounter % 60 == 0) // Log every second
-    {
-        DBG("Input level: " + juce::String(inputLevel) + ", Output level: " + juce::String(outputLevel));
-        DBG("Test level: " + juce::String(testLevel));
-    }
 }
 
 void AirPlayPluginEditor::updateStatusDisplay()
