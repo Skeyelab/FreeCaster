@@ -38,32 +38,59 @@ A cross-platform VST3 plugin that streams real-time audio from your DAW to AirPl
 
 ## Quick Start
 
-1. Build the plugin (see [BUILD.md](BUILD.md))
+1. Build the plugin (see instructions below)
 2. Install the VST3 to your plugins folder
 3. Load it in your DAW on your master track
 4. Select an AirPlay device from the list
 5. Click "Connect" and start playing
 
-See [USER_GUIDE.md](USER_GUIDE.md) for detailed instructions.
+For detailed setup instructions, see [USER_GUIDE.md](USER_GUIDE.md).
 
 ## Building
-
-### Quick Build
-
-```bash
-cd AirPlayPlugin
-mkdir build && cd build
-cmake ..
-cmake --build . --config Release
-```
-
-See [BUILD.md](BUILD.md) for platform-specific instructions.
 
 ### Requirements
 
 - CMake 3.15+
 - C++17 compiler
 - JUCE (automatically downloaded)
+- OpenSSL 3.0 or later (for RAOP authentication)
+
+### Quick Build
+
+```bash
+mkdir build && cd build
+cmake ..
+cmake --build . --config Release
+```
+
+### Platform-Specific Notes
+
+**macOS:**
+- Uses native AVFoundation for AirPlay
+- Automatically detected and configured
+- Requires macOS 10.13+
+
+**Windows/Linux:**
+- RAOP protocol implementation
+- Requires OpenSSL for authentication
+- Ensure mDNS service is running (or Avahi on Linux)
+
+## Testing
+
+The project includes comprehensive automated testing capabilities:
+
+```bash
+# Run automated AirPlay device discovery and connection testing
+python3 automated_airplay_test.py
+```
+
+This script will:
+- Discover all AirPlay devices on your network
+- Attempt to connect to each device
+- Log detailed RTSP handshake information
+- Provide connection status summary
+
+For more information on testing, see [CURRENT_STATUS.md](CURRENT_STATUS.md).
 
 ## Architecture
 
