@@ -516,28 +516,19 @@ bool RaopClient::sendAnnounce()
         juce::Logger::writeToLog("RaopClient: Server public key from TXT record: " + receiverPkBase64);
         if (receiverPkBase64.isNotEmpty())
         {
-            // Generate AES-128 key and IV
-            juce::MemoryBlock aesKey(16), aesIV(16);
-            RAND_bytes(static_cast<unsigned char*>(aesKey.getData()), 16);
-            RAND_bytes(static_cast<unsigned char*>(aesIV.getData()), 16);
-
-            // Parse server public key from TXT record (hex string)
-            // The TXT record contains a raw RSA public key in hex format
-            // We need to convert it to PEM format first
-            juce::MemoryBlock serverKeyData;
-            serverKeyData.loadFromHexString(receiverPkBase64);
+            // Try using the server public key directly as rsaaeskey
+            // Some AirPlay implementations expect the server's public key in rsaaeskey field
+            juce::Logger::writeToLog("RaopClient: Using server public key directly as rsaaeskey");
             
-            // Create a minimal RSA public key structure
-            // The hex data contains the RSA modulus and exponent
-            // For now, we'll use our own public key as fallback
-            juce::String publicKey = auth->getPublicKeyBase64();
-            if (publicKey.isNotEmpty())
-            {
-                sdp += "a=rsaaeskey:" + publicKey + "\r\n";
-                juce::String aesIV = "AAAAAAAAAAAAAAAAAAAAAA==";  // Base64 encoded zeros
-                sdp += "a=aesiv:" + aesIV + "\r\n";
-                juce::Logger::writeToLog("RaopClient: Using fallback auth fields (server key parsing failed)");
-            }
+            // Generate random AES IV
+            juce::MemoryBlock aesIV(16);
+            RAND_bytes(static_cast<unsigned char*>(aesIV.getData()), 16);
+            juce::String aesivb64 = juce::Base64::toBase64(aesIV.getData(), (size_t)aesIV.getSize());
+            
+            // Use the server public key hex string directly as rsaaeskey
+            sdp += "a=rsaaeskey:" + receiverPkBase64 + "\r\n";
+            sdp += "a=aesiv:" + aesivb64 + "\r\n";
+            juce::Logger::writeToLog("RaopClient: Added server public key directly as rsaaeskey");
 
         }
         else
@@ -566,10 +557,23 @@ bool RaopClient::sendSetup()
     headers.set("CSeq", juce::String(cseq++));
 
     // Specify client UDP ports for server to send to
-    // Note: removed interleaved parameter as some AirPlay devices don't support it
-    juce::String transport = "RTP/AVP/UDP;unicast;mode=record;";
-    transport += "client_port=" + juce::String(clientAudioPort);
-    transport += "-" + juce::String(clientControlPort);
+    // Try different transport formats based on device type
+    juce::String transport;
+    if (currentDevice.getHostAddress().contains("airsonos"))
+    {
+        // Airsonos bridge format
+        transport = "RTP/AVP/UDP;unicast;mode=record;";
+        transport += "client_port=" + juce::String(clientAudioPort);
+        transport += "-" + juce::String(clientControlPort);
+        transport += ";interleaved=0-1";
+    }
+    else
+    {
+        // Native AirPlay device format
+        transport = "RTP/AVP/UDP;unicast;mode=record;";
+        transport += "client_port=" + juce::String(clientAudioPort);
+        transport += "-" + juce::String(clientControlPort);
+    }
 
     headers.set("Transport", transport);
 
@@ -647,7 +651,7 @@ bool RaopClient::createUdpSockets()
 {
     // Close any existing sockets first
     closeUdpSockets();
-    
+
     // Try to select available ports first to avoid bind failures
     selectAvailableClientPorts();
     juce::Logger::writeToLog("RaopClient: Creating UDP sockets - audio:" + juce::String(clientAudioPort) +
@@ -753,7 +757,7 @@ void RaopClient::closeUdpSockets()
         timingSocket = std::make_unique<juce::DatagramSocket>();
         juce::Logger::writeToLog("RaopClient: Recreated timing socket at " + juce::String::toHexString(reinterpret_cast<uintptr_t>(timingSocket.get())));
     }
-    
+
     // Reset ports to default values for next connection
     clientAudioPort = 6000;
     clientControlPort = 6001;
