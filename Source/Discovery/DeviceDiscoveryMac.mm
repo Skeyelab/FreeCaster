@@ -35,6 +35,7 @@
 
 - (void)start
 {
+    NSLog(@"AirPlayServiceBrowser: Starting discovery for _raop._tcp.");
     [browser searchForServicesOfType:@"_raop._tcp." inDomain:@"local."];
 }
 
@@ -47,6 +48,7 @@
            didFindService:(NSNetService*)service
                moreComing:(BOOL)moreComing
 {
+    NSLog(@"AirPlayServiceBrowser: Found service: %@", [service name]);
     [services addObject:service];
     [service setDelegate:self];
     [service resolveWithTimeout:5.0];

@@ -29,11 +29,11 @@ public:
     bool sendAudio(const juce::MemoryBlock& audioData, int sampleRate, int channels);
 
     juce::String getLastError() const { return lastError; }
-    
+
     // Auto-reconnect settings
     void setAutoReconnect(bool enable) { autoReconnectEnabled = enable; }
     bool isAutoReconnectEnabled() const { return autoReconnectEnabled; }
-    
+
     // Connection health monitoring
     bool checkConnection();
     juce::int64 getLastSuccessfulSendTime() const { return lastSuccessfulSendTime; }
@@ -51,12 +51,16 @@ public:
         juce::String statusMessage;
         juce::StringPairArray headers;
         juce::String body;
-        
+
         bool isSuccess() const { return statusCode >= 200 && statusCode < 300; }
     };
-    
+
     bool parseRtspResponse(const juce::String& responseText, RtspResponse& response);
     bool parseTransportHeader(const juce::String& transport, int& audioPort, int& controlPort, int& timingPort);
+
+    // Socket management for testing
+    bool createUdpSockets();
+    void closeUdpSockets();
 
 private:
     // Connection management
@@ -64,7 +68,7 @@ private:
     bool attemptReconnect();
     void logError(const juce::String& error);
     bool waitForSocketReady(juce::StreamingSocket* sock, int timeoutMs);
-    
+
     // RTP header structure (12 bytes)
     struct RTPHeader
     {
@@ -90,8 +94,6 @@ private:
     bool sendRecord();
     bool sendTeardown();
 
-    bool createUdpSockets();
-    void closeUdpSockets();
     bool sendRtpPacket(const void* data, size_t size);
     NTPTimestamp getCurrentNtpTimestamp() const;
 
@@ -104,7 +106,7 @@ private:
     bool connected = false;
     ConnectionState connectionState = ConnectionState::Disconnected;
     juce::String lastError;
-    
+
     // Reliability and monitoring
     bool autoReconnectEnabled = true;
     int reconnectAttempts = 0;
@@ -113,7 +115,7 @@ private:
     juce::int64 lastConnectionAttemptTime = 0;
     int consecutiveFailures = 0;
     static constexpr int maxConsecutiveFailures = 10;
-    
+
     // Thread safety
     juce::CriticalSection stateLock;
 
