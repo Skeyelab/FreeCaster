@@ -4,7 +4,10 @@
 AirPlayPluginEditor::AirPlayPluginEditor(AirPlayPluginProcessor& p)
     : AudioProcessorEditor(&p), audioProcessor(p)
 {
-    setSize(500, 500);
+    // Set a reasonable size that works for both standalone and plugin contexts
+    setSize(600, 500);
+    setResizable(true, true);
+    setResizeLimits(400, 400, 800, 600);
 
     titleLabel.setText("FreeCaster", juce::dontSendNotification);
     titleLabel.setFont(juce::Font(24.0f, juce::Font::bold));
@@ -41,27 +44,38 @@ AirPlayPluginEditor::AirPlayPluginEditor(AirPlayPluginProcessor& p)
     bufferHealthLabel.setFont(juce::Font(11.0f));
     bufferHealthLabel.setColour(juce::Label::textColourId, juce::Colours::lightgrey);
     addAndMakeVisible(bufferHealthLabel);
-    
+
     // Set up level meters
     addAndMakeVisible(inputMeter);
     addAndMakeVisible(outputMeter);
-    
+
+    // Ensure meters are visible
+    inputMeter.setVisible(true);
+    outputMeter.setVisible(true);
+
     inputMeterLabel.setText("Input", juce::dontSendNotification);
     inputMeterLabel.setJustificationType(juce::Justification::centred);
     inputMeterLabel.setFont(juce::Font(11.0f));
     addAndMakeVisible(inputMeterLabel);
-    
+
     outputMeterLabel.setText("Output", juce::dontSendNotification);
     outputMeterLabel.setJustificationType(juce::Justification::centred);
     outputMeterLabel.setFont(juce::Font(11.0f));
     addAndMakeVisible(outputMeterLabel);
+
+    // Test audio button
+    testAudioButton.setButtonText("Test Meters");
+    testAudioButton.onClick = [this] {
+        testLevel = (testLevel > 0.0f) ? 0.0f : 0.75f;
+    };
+    addAndMakeVisible(testAudioButton);
 
     // Set up error callbacks
     audioProcessor.getAirPlayManager().onError = [this](const juce::String& error)
     {
         showError(error);
     };
-    
+
     audioProcessor.getAirPlayManager().onStatusChange = [this](const juce::String& status)
     {
         showStatus(status);
@@ -86,7 +100,7 @@ void AirPlayPluginEditor::paint(juce::Graphics& g)
 void AirPlayPluginEditor::resized()
 {
     auto area = getLocalBounds().reduced(10);
-    
+
     // Reserve space for meters on the right
     auto metersArea = area.removeFromRight(100);
     area.removeFromRight(10); // Gap
@@ -96,10 +110,10 @@ void AirPlayPluginEditor::resized()
 
     statusLabel.setBounds(area.removeFromTop(25));
     area.removeFromTop(3);
-    
+
     errorLabel.setBounds(area.removeFromTop(20));
     area.removeFromTop(3);
-    
+
     bufferHealthLabel.setBounds(area.removeFromTop(20));
     area.removeFromTop(10);
 
@@ -107,45 +121,67 @@ void AirPlayPluginEditor::resized()
     area.removeFromTop(10);
 
     auto buttonArea = area.removeFromTop(40);
-    connectButton.setBounds(buttonArea.removeFromLeft(165));
-    buttonArea.removeFromLeft(10);
-    disconnectButton.setBounds(buttonArea);
-    
+    connectButton.setBounds(buttonArea.removeFromLeft(110));
+    buttonArea.removeFromLeft(5);
+    disconnectButton.setBounds(buttonArea.removeFromLeft(110));
+    buttonArea.removeFromLeft(5);
+    testAudioButton.setBounds(buttonArea);
+
     // Layout meters vertically on the right side
     metersArea.removeFromTop(40); // Align with title
-    
+
     auto inputMeterArea = metersArea.removeFromLeft(40);
     metersArea.removeFromLeft(10);
     auto outputMeterArea = metersArea.removeFromLeft(40);
-    
+
     inputMeterLabel.setBounds(inputMeterArea.removeFromTop(20));
-    inputMeter.setBounds(inputMeterArea.removeFromTop(340));
-    
+    inputMeter.setBounds(inputMeterArea); // Use remaining height
+
     outputMeterLabel.setBounds(outputMeterArea.removeFromTop(20));
-    outputMeter.setBounds(outputMeterArea.removeFromTop(340));
+    outputMeter.setBounds(outputMeterArea); // Use remaining height
+
+    // Debug: Log meter bounds
+    DBG("=== RESIZE DEBUG ===");
+    DBG("Window size: " + juce::String(getWidth()) + "x" + juce::String(getHeight()));
+    DBG("Input meter bounds: " + inputMeter.getBounds().toString());
+    DBG("Output meter bounds: " + outputMeter.getBounds().toString());
+    DBG("Input meter visible: " + juce::String(inputMeter.isVisible()));
+    DBG("Output meter visible: " + juce::String(outputMeter.isVisible()));
+    DBG("Meters area initial: " + juce::String(metersArea.getWidth()) + "x" + juce::String(metersArea.getHeight()));
 }
 
 void AirPlayPluginEditor::timerCallback()
 {
     updateStatusDisplay();
     updateBufferHealth();
-    
+
     // Update level meters
-    inputMeter.setLevel(audioProcessor.getInputLevel());
-    outputMeter.setLevel(audioProcessor.getOutputLevel());
+    float inputLevel = (testLevel > 0.0f) ? testLevel : audioProcessor.getInputLevel();
+    float outputLevel = (testLevel > 0.0f) ? testLevel : audioProcessor.getOutputLevel();
+
+    inputMeter.setLevel(inputLevel);
+    outputMeter.setLevel(outputLevel);
+
+    // Debug: Log levels occasionally
+    static int debugCounter = 0;
+    if (++debugCounter % 60 == 0) // Log every second
+    {
+        DBG("Input level: " + juce::String(inputLevel) + ", Output level: " + juce::String(outputLevel));
+        DBG("Test level: " + juce::String(testLevel));
+    }
 }
 
 void AirPlayPluginEditor::updateStatusDisplay()
 {
     auto& manager = audioProcessor.getAirPlayManager();
-    
+
     if (manager.isConnected())
     {
         statusLabel.setText(manager.getConnectionStatus(), juce::dontSendNotification);
         statusLabel.setColour(juce::Label::textColourId, juce::Colours::lightgreen);
         connectButton.setEnabled(false);
         disconnectButton.setEnabled(true);
-        
+
         // Clear error if connected successfully
         juce::String lastError = manager.getLastError();
         if (lastError.isEmpty())
@@ -157,7 +193,7 @@ void AirPlayPluginEditor::updateStatusDisplay()
         statusLabel.setColour(juce::Label::textColourId, juce::Colours::white);
         connectButton.setEnabled(true);
         disconnectButton.setEnabled(false);
-        
+
         // Show error if present
         juce::String lastError = manager.getLastError();
         if (lastError.isNotEmpty())
@@ -243,7 +279,7 @@ void AirPlayPluginEditor::connectButtonClicked()
 void AirPlayPluginEditor::disconnectButtonClicked()
 {
     audioProcessor.getAirPlayManager().disconnectFromDevice();
-    
+
     // Reset meters when disconnected
     outputMeter.reset();
 }
