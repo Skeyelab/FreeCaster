@@ -10,7 +10,8 @@ class LevelMeter : public juce::Component
 public:
     LevelMeter()
     {
-        setOpaque(false);
+        setOpaque(true);
+        setVisible(true);
     }
 
     void paint(juce::Graphics& g) override
@@ -24,7 +25,6 @@ public:
         // Draw scale markings
         g.setColour(juce::Colour(0xFF404040));
         g.setFont(9.0f);
-
         const float dbMarks[] = { 0.0f, -6.0f, -12.0f, -24.0f, -48.0f };
         for (auto db : dbMarks)
         {
@@ -41,7 +41,6 @@ public:
         if (meterHeight > 0.0f)
         {
             auto meterBounds = bounds.withTop(bounds.getBottom() - meterHeight).reduced(2.0f);
-
             // Color gradient based on level
             juce::ColourGradient gradient(
                 juce::Colour(0xFF00ff00), meterBounds.getX(), meterBounds.getBottom(),
@@ -55,7 +54,6 @@ public:
             g.setGradientFill(gradient);
             g.fillRoundedRectangle(meterBounds, 2.0f);
         }
-
         // Draw peak hold indicator
         if (peakLevel > 0.0f)
         {
@@ -131,6 +129,8 @@ public:
 
 private:
     void timerCallback() override;
+    void deviceFound(const AirPlayDevice& device);
+    void deviceLost(const AirPlayDevice& device);
 
     void updateDeviceList();
     void connectButtonClicked();
@@ -158,7 +158,8 @@ private:
     LevelMeter outputMeter;
     juce::Label inputMeterLabel;
     juce::Label outputMeterLabel;
-
+    juce::TextButton testAudioButton;
+    float testLevel = 0.0f;
     class DeviceListModel : public juce::ListBoxModel
     {
     public:
