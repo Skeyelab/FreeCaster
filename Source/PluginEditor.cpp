@@ -4,7 +4,10 @@
 AirPlayPluginEditor::AirPlayPluginEditor(AirPlayPluginProcessor& p)
     : AudioProcessorEditor(&p), audioProcessor(p)
 {
-    setSize(500, 500);
+    // Set a reasonable size that works for both standalone and plugin contexts
+    setSize(600, 500);
+    setResizable(true, true);
+    setResizeLimits(400, 400, 800, 600);
 
     titleLabel.setText("FreeCaster", juce::dontSendNotification);
     titleLabel.setFont(juce::Font(24.0f, juce::Font::bold));
@@ -55,6 +58,13 @@ AirPlayPluginEditor::AirPlayPluginEditor(AirPlayPluginProcessor& p)
     outputMeterLabel.setJustificationType(juce::Justification::centred);
     outputMeterLabel.setFont(juce::Font(11.0f));
     addAndMakeVisible(outputMeterLabel);
+
+    // Test audio button
+    testAudioButton.setButtonText("Test Meters");
+    testAudioButton.onClick = [this] {
+        testLevel = (testLevel > 0.0f) ? 0.0f : 0.75f;
+    };
+    addAndMakeVisible(testAudioButton);
 
     // Set up error callbacks
     audioProcessor.getAirPlayManager().onError = [this](const juce::String& error)
@@ -107,9 +117,11 @@ void AirPlayPluginEditor::resized()
     area.removeFromTop(10);
 
     auto buttonArea = area.removeFromTop(40);
-    connectButton.setBounds(buttonArea.removeFromLeft(165));
-    buttonArea.removeFromLeft(10);
-    disconnectButton.setBounds(buttonArea);
+    connectButton.setBounds(buttonArea.removeFromLeft(110));
+    buttonArea.removeFromLeft(5);
+    disconnectButton.setBounds(buttonArea.removeFromLeft(110));
+    buttonArea.removeFromLeft(5);
+    testAudioButton.setBounds(buttonArea);
 
     // Layout meters vertically on the right side
     metersArea.removeFromTop(40); // Align with title
@@ -119,10 +131,10 @@ void AirPlayPluginEditor::resized()
     auto outputMeterArea = metersArea.removeFromLeft(40);
 
     inputMeterLabel.setBounds(inputMeterArea.removeFromTop(20));
-    inputMeter.setBounds(inputMeterArea.removeFromTop(340));
+    inputMeter.setBounds(inputMeterArea); // Use remaining height
 
     outputMeterLabel.setBounds(outputMeterArea.removeFromTop(20));
-    outputMeter.setBounds(outputMeterArea.removeFromTop(340));
+    outputMeter.setBounds(outputMeterArea); // Use remaining height
 }
 
 void AirPlayPluginEditor::timerCallback()
@@ -131,8 +143,11 @@ void AirPlayPluginEditor::timerCallback()
     updateBufferHealth();
 
     // Update level meters
-    inputMeter.setLevel(audioProcessor.getInputLevel());
-    outputMeter.setLevel(audioProcessor.getOutputLevel());
+    float inputLevel = (testLevel > 0.0f) ? testLevel : audioProcessor.getInputLevel();
+    float outputLevel = (testLevel > 0.0f) ? testLevel : audioProcessor.getOutputLevel();
+
+    inputMeter.setLevel(inputLevel);
+    outputMeter.setLevel(outputLevel);
 }
 
 void AirPlayPluginEditor::updateStatusDisplay()
