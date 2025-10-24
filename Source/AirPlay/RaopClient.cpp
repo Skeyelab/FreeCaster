@@ -505,7 +505,8 @@ bool RaopClient::sendSetup()
     headers.set("CSeq", juce::String(cseq++));
 
     // Specify client UDP ports for server to send to
-    juce::String transport = "RTP/AVP/UDP;unicast;interleaved=0-1;mode=record;";
+    // Note: removed interleaved parameter as some AirPlay devices don't support it
+    juce::String transport = "RTP/AVP/UDP;unicast;mode=record;";
     transport += "client_port=" + juce::String(clientAudioPort);
     transport += "-" + juce::String(clientControlPort);
 
@@ -515,11 +516,20 @@ bool RaopClient::sendSetup()
     if (!sendRtspRequest("SETUP", "rtsp://" + currentDevice.getHostAddress() + "/stream", headers, &response))
         return false;
 
+    // Log response details for debugging
+    juce::Logger::writeToLog("RaopClient: SETUP response status: " + juce::String(response.statusCode) + " " + response.statusMessage);
+    juce::Logger::writeToLog("RaopClient: SETUP response headers:");
+    for (int i = 0; i < response.headers.size(); ++i)
+    {
+        juce::Logger::writeToLog("  " + response.headers.getAllKeys()[i] + ": " + response.headers.getAllValues()[i]);
+    }
+
     // Parse Transport header for server ports
     juce::String transportResponse = response.headers["Transport"];
     if (transportResponse.isEmpty())
     {
         lastError = "Server did not provide Transport header in SETUP response";
+        juce::Logger::writeToLog("RaopClient: SETUP response body: " + response.body);
         return false;
     }
 
