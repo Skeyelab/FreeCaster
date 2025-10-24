@@ -250,12 +250,22 @@ bool RaopClient::sendRtspRequest(const juce::String& method, const juce::String&
     // Read response if requested
     if (response != nullptr)
     {
+        // Wait for the socket to be ready for reading (timeout: 5 seconds)
+        juce::Logger::writeToLog("RaopClient: Waiting for RTSP response...");
+        int ready = socket->waitUntilReady(true, 5000);
+        if (ready != 1)
+        {
+            lastError = "Socket not ready for reading (timeout or error)";
+            juce::Logger::writeToLog("RaopClient: Socket not ready - ready state: " + juce::String(ready));
+            return false;
+        }
+        
         char buffer[4096];
         int bytesRead = socket->read(buffer, sizeof(buffer) - 1, false);
         if (bytesRead <= 0)
         {
             lastError = "Failed to read RTSP response";
-            juce::Logger::writeToLog("RaopClient: No response received from device");
+            juce::Logger::writeToLog("RaopClient: No response received from device after socket was ready");
             return false;
         }
 
