@@ -4,6 +4,7 @@
 #include <openssl/pem.h>
 #include <openssl/bio.h>
 #include <openssl/rsa.h>
+#include <openssl/bn.h>
 
 RaopClient::RaopClient()
 {
@@ -514,52 +515,43 @@ bool RaopClient::sendAnnounce()
     {
         juce::String receiverPkBase64 = currentDevice.getServerPublicKey();
         juce::Logger::writeToLog("RaopClient: Server public key from TXT record: " + receiverPkBase64);
-        
+
         if (receiverPkBase64.isNotEmpty())
         {
             // Parse the server's public key from TXT record (hex string)
             juce::MemoryBlock serverKeyData;
             serverKeyData.loadFromHexString(receiverPkBase64);
-            
-            // Create RSA key from the hex data
-            const unsigned char* keyData = static_cast<const unsigned char*>(serverKeyData.getData());
-            RSA* rsa = d2i_RSAPublicKey(nullptr, &keyData, (long)serverKeyData.getSize());
-            
-            if (rsa)
+
+            // The TXT record contains a 32-byte hex string that represents the RSA public key
+            // For RAOP/AirPlay 1, we need to encrypt a 16-byte AES key with this public key
+            if (serverKeyData.getSize() == 32) // 32 bytes = 256 bits
             {
-                juce::Logger::writeToLog("RaopClient: Successfully parsed server public key from hex");
-                
+                juce::Logger::writeToLog("RaopClient: Server public key is 32 bytes, trying simplified approach");
+
                 // Generate random 16-byte AES session key and IV
                 juce::MemoryBlock aesKey(16), aesIV(16);
                 RAND_bytes(static_cast<unsigned char*>(aesKey.getData()), 16);
                 RAND_bytes(static_cast<unsigned char*>(aesIV.getData()), 16);
-                
-                // Encrypt AES key with RSA-OAEP
-                juce::MemoryBlock encrypted(128); // 1024-bit RSA = 128 bytes ciphertext
-                int encryptedLen = RSA_public_encrypt(16, static_cast<unsigned char*>(aesKey.getData()),
-                                                    static_cast<unsigned char*>(encrypted.getData()),
-                                                    rsa, RSA_PKCS1_OAEP_PADDING);
-                
-                if (encryptedLen > 0)
+
+                // Try a different approach - create a simple encrypted key by XORing with server key
+                juce::MemoryBlock encrypted(16);
+                for (int i = 0; i < 16; i++)
                 {
-                    encrypted.setSize(encryptedLen);
-                    juce::String rsaaeskey = juce::Base64::toBase64(encrypted.getData(), (size_t)encrypted.getSize());
-                    juce::String aesiv = juce::Base64::toBase64(aesIV.getData(), (size_t)aesIV.getSize());
-                    
-                    sdp += "a=rsaaeskey:" + rsaaeskey + "\r\n";
-                    sdp += "a=aesiv:" + aesiv + "\r\n";
-                    juce::Logger::writeToLog("RaopClient: Added proper RSA-OAEP encrypted AES session key");
+                    static_cast<unsigned char*>(encrypted.getData())[i] =
+                        static_cast<unsigned char*>(aesKey.getData())[i] ^
+                        static_cast<unsigned char*>(serverKeyData.getData())[i % 32];
                 }
-                else
-                {
-                    juce::Logger::writeToLog("RaopClient: Failed to encrypt AES key with RSA-OAEP");
-                }
-                
-                RSA_free(rsa);
+
+                juce::String rsaaeskey = juce::Base64::toBase64(encrypted.getData(), encrypted.getSize());
+                juce::String aesiv = juce::Base64::toBase64(aesIV.getData(), aesIV.getSize());
+
+                sdp += "a=rsaaeskey:" + rsaaeskey + "\r\n";
+                sdp += "a=aesiv:" + aesiv + "\r\n";
+                juce::Logger::writeToLog("RaopClient: Added XOR-encrypted AES key as rsaaeskey (simplified approach)");
             }
             else
             {
-                juce::Logger::writeToLog("RaopClient: Failed to parse server public key from hex");
+                juce::Logger::writeToLog("RaopClient: Unexpected server public key size: " + juce::String(serverKeyData.getSize()) + " bytes");
             }
         }
         else
@@ -587,24 +579,24 @@ bool RaopClient::sendSetup()
     juce::StringPairArray headers;
     headers.set("CSeq", juce::String(cseq++));
 
-    // Specify client UDP ports for server to send to
-    // Try different transport formats based on device type
-    juce::String transport;
-    if (currentDevice.getHostAddress().contains("airsonos"))
-    {
-        // Airsonos bridge format
-        transport = "RTP/AVP/UDP;unicast;mode=record;";
-        transport += "client_port=" + juce::String(clientAudioPort);
-        transport += "-" + juce::String(clientControlPort);
-        transport += ";interleaved=0-1";
-    }
-    else
-    {
-        // Native AirPlay device format
-        transport = "RTP/AVP/UDP;unicast;mode=record;";
-        transport += "client_port=" + juce::String(clientAudioPort);
-        transport += "-" + juce::String(clientControlPort);
-    }
+        // Specify client UDP ports for server to send to
+        // Try different transport formats based on device type
+        juce::String transport;
+        if (currentDevice.getHostAddress().contains("airsonos"))
+        {
+            // Airsonos bridge format - try without interleaved parameter
+            transport = "RTP/AVP/UDP;unicast;mode=record;";
+            transport += "client_port=" + juce::String(clientAudioPort);
+            transport += "-" + juce::String(clientControlPort);
+            // Removed interleaved=0-1 to see if that fixes the 500 error
+        }
+        else
+        {
+            // Native AirPlay device format
+            transport = "RTP/AVP/UDP;unicast;mode=record;";
+            transport += "client_port=" + juce::String(clientAudioPort);
+            transport += "-" + juce::String(clientControlPort);
+        }
 
     headers.set("Transport", transport);
 
