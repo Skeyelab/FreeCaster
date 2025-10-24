@@ -127,10 +127,11 @@ public:
     void paint(juce::Graphics&) override;
     void resized() override;
 
-private:
-    void timerCallback() override;
     void deviceFound(const AirPlayDevice& device);
     void deviceLost(const AirPlayDevice& device);
+
+private:
+    void timerCallback() override;
 
     void updateDeviceList();
     void connectButtonClicked();

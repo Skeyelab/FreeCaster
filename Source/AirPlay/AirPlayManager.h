@@ -31,6 +31,9 @@ public:
     std::function<void(const juce::String&)> onError;
     std::function<void(const juce::String&)> onStatusChange;
 
+    // Clear callbacks (call before UI destruction)
+    void clearCallbacks();
+
 private:
     void run() override;
     void processAudioStream();

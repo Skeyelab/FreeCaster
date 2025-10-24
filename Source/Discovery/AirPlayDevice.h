@@ -26,6 +26,18 @@ public:
 
     bool isValid() const { return deviceName.isNotEmpty() && hostAddress.isNotEmpty(); }
 
+    bool operator==(const AirPlayDevice& other) const
+    {
+        return deviceName == other.deviceName &&
+               hostAddress == other.hostAddress &&
+               port == other.port;
+    }
+
+    bool operator!=(const AirPlayDevice& other) const
+    {
+        return !(*this == other);
+    }
+
 private:
     juce::String deviceName;
     juce::String hostAddress;

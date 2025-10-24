@@ -61,6 +61,7 @@ target_sources(FreeCaster
         Source/PluginEditor.cpp
         Source/AirPlay/AirPlayManager.cpp
         Source/AirPlay/AirPlayMac.mm
+        Source/Discovery/DeviceDiscovery.cpp
         Source/Discovery/DeviceDiscoveryMac.mm
         Source/Discovery/AirPlayDevice.cpp
         Source/Audio/AudioEncoder.cpp
@@ -118,6 +119,7 @@ add_executable(FreeCasterTests
     # Reuse source files without GUI
     Source/AirPlay/AirPlayManager.cpp
     Source/AirPlay/AirPlayMac.mm
+    Source/Discovery/DeviceDiscovery.cpp
     Source/Discovery/AirPlayDevice.cpp
     Source/Discovery/DeviceDiscoveryMac.mm
     Source/Audio/StreamBuffer.cpp

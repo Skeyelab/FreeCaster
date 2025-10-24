@@ -10,6 +10,8 @@ AirPlayManager::AirPlayManager() : Thread("AirPlayStream")
 
 AirPlayManager::~AirPlayManager()
 {
+    // Clear callbacks first to prevent UI access during destruction
+    clearCallbacks();
     disconnectFromDevice();
     stopThread(2000);
 }
@@ -55,7 +57,11 @@ void AirPlayManager::disconnectFromDevice()
         airplayImpl->disconnect();
     }
 
-    notifyStatusChange("Disconnected");
+    // Only notify if we have a valid callback (UI still exists)
+    if (onStatusChange)
+    {
+        notifyStatusChange("Disconnected");
+    }
 }
 
 bool AirPlayManager::isConnected() const
@@ -150,4 +156,10 @@ void AirPlayManager::notifyStatusChange(const juce::String& status)
 {
     if (onStatusChange)
         onStatusChange(status);
+}
+
+void AirPlayManager::clearCallbacks()
+{
+    onError = nullptr;
+    onStatusChange = nullptr;
 }
