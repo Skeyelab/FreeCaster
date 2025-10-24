@@ -1,28 +1,91 @@
-2025-10-24 00:08:41.652 FreeCaster[60426:9448096] AirPlayServiceBrowser: Starting discovery for _raop._tcp.
-2025-10-24 00:08:41.905 FreeCaster[60426:9448096] AirPlayServiceBrowser: Found service: 4E8772B1AB7A@LIB-2833
-2025-10-24 00:08:41.918 FreeCaster[60426:9448096] AirPlayServiceBrowser: Found service: 542A1B72B898@Sonos Move (big)
-2025-10-24 00:08:41.929 FreeCaster[60426:9448096] AirPlayServiceBrowser: Found service: 347E5C94F923@Sonos Beam
-2025-10-24 00:08:41.943 FreeCaster[60426:9448096] AirPlayServiceBrowser: Found service: BBBBB6A484B8@Sonos Move (big)+
-2025-10-24 00:08:41.954 FreeCaster[60426:9448096] AirPlayServiceBrowser: Found service: BBBB9F2027C9@Sonos Beam+
+2025-10-24 00:30:02.410 FreeCaster[15790:9557927] AirPlayServiceBrowser: Starting discovery for _raop._tcp.
+2025-10-24 00:30:02.646 FreeCaster[15790:9557927] AirPlayServiceBrowser: Found service: 4E8772B1AB7A@LIB-2833
+2025-10-24 00:30:02.662 FreeCaster[15790:9557927] AirPlayServiceBrowser: Found service: 542A1B72B898@Sonos Move (big)
+2025-10-24 00:30:02.685 FreeCaster[15790:9557927] AirPlayServiceBrowser: Found service: 347E5C94F923@Sonos Beam
+2025-10-24 00:30:02.700 FreeCaster[15790:9557927] AirPlayServiceBrowser: Found service: BBBBB6A484B8@Sonos Move (big)+
+2025-10-24 00:30:02.716 FreeCaster[15790:9557927] AirPlayServiceBrowser: Found service: BBBB9F2027C9@Sonos Beam+
+2025-10-24 00:30:02.881 FreeCaster[15790:9557927] RaopClient: Found server public key in TXT record: 7596700ac243337d145c5f03e5121c8e521c2f69048c2f8c5417aef69f8425cd
 AirPlayPluginEditor: Device found - 4E8772B1AB7A@LIB-2833 at LIB-3001.local:7000
-AirPlayPluginEditor: Device found - BBBBB6A484B8@Sonos Move (big)+ at a0d7b954-airsonos.local:55799
-AirPlayPluginEditor: Device found - BBBB9F2027C9@Sonos Beam+ at a0d7b954-airsonos.local:59361
+2025-10-24 00:30:02.960 FreeCaster[15790:9557927] RaopClient: Found server public key in TXT record: 7596700ac243337d145c5f03e5121c8e521c2f69048c2f8c5417aef69f8425cd
+2025-10-24 00:30:02.960 FreeCaster[15790:9557927] RaopClient: Found server public key in TXT record: e4a6e08fc42d1608ad70e41022efddc53a62a74fa6ae3fe500eff9dac246423f
 AirPlayPluginEditor: Device found - 542A1B72B898@Sonos Move (big) at Sonos-542A1B72B898.local:7000
+2025-10-24 00:30:02.960 FreeCaster[15790:9557927] RaopClient: Found server public key in TXT record: 47eedfd74d9ff04126a9b0881540e5aaf701b59687cf373e9e98e5b54238db5a
 AirPlayPluginEditor: Device found - 347E5C94F923@Sonos Beam at Sonos-347E5C94F923.local:7000
+2025-10-24 00:30:02.964 FreeCaster[15790:9557927] RaopClient: No 'pk' TXT record found for device: BBBBB6A484B8@Sonos Move (big)+
+AirPlayPluginEditor: Device found - BBBBB6A484B8@Sonos Move (big)+ at a0d7b954-airsonos.local:55799
+2025-10-24 00:30:02.964 FreeCaster[15790:9557927] RaopClient: No 'pk' TXT record found for device: BBBB9F2027C9@Sonos Beam+
+AirPlayPluginEditor: Device found - BBBB9F2027C9@Sonos Beam+ at a0d7b954-airsonos.local:59361
 AirPlayPluginEditor: Connect button clicked
-AirPlayPluginEditor: Selected row: 3, devices.size(): 5
+AirPlayPluginEditor: Selected row: 0, devices.size(): 5
+AirPlayPluginEditor: Attempting to connect to device: 4E8772B1AB7A@LIB-2833
+AirPlayManager: connectToDevice called for: 4E8772B1AB7A@LIB-2833 at LIB-3001.local:7000
+AirPlayManager: Streamer exists, attempting connection
+[RaopClient] connect() called for device: 4E8772B1AB7A@LIB-2833 at LIB-3001.local:7000
+RaopClient: Connection state changed to Connecting...
+[RaopClient] Connection state set to Connecting
+RaopClient: Shutting down audio socket (port 6000)
+RaopClient: Recreated audio socket at 11f7dd750
+RaopClient: Shutting down control socket (port 6001)
+RaopClient: Recreated control socket at 11f7dd7d0
+RaopClient: Shutting down timing socket (port 6002)
+RaopClient: Recreated timing socket at 120d073d0
+RaopClient: Selected available ports - audio:6000 control:6001 timing:6002
+RaopClient: Creating UDP sockets - audio:6000 control:6001 timing:6002
+RaopClient: Binding audio socket to port 6000 (socket at 11f7dd750)
+RaopClient: Successfully bound audio socket to port 6000
+RaopClient: Binding control socket to port 6001 (socket at 11f7dd7d0)
+RaopClient: Successfully bound control socket to port 6001
+RaopClient: Binding timing socket to port 6002 (socket at 120d073d0)
+RaopClient: Successfully bound timing socket to port 6002
+RaopClient: All UDP sockets created successfully
+RaopClient: Attempting TCP connection to LIB-3001.local:7000
+RaopClient: TCP connection established successfully
+RaopClient: TCP connection established, proceeding with RTSP handshake
+RaopClient: Starting RTSP handshake
+RaopClient: Sending OPTIONS request
+RaopClient: Sending RTSP request: OPTIONS * RTSP/1.0
+CSeq: 1
+User-Agent: FreeCaster/1.0
+Apple-Challenge: VHJ0Vf3PrMdEJdI5sDgNvg==
+Client-Instance: 8889FD52F5C8016E
+DACP-ID: 8889FD52F5C8016E
+Apple-Device-ID: 52:F3:C7:2D:73:6D
+
+
+RaopClient: Successfully sent 200 bytes
+RaopClient: Waiting for RTSP response...
+RaopClient: Received RTSP response: RTSP/1.0 403 Forbidden
+Content-Length: 0
+Server: AirTunes/870.14.1
+CSeq: 1
+X-Apple-ProcessingTime: 0
+X-Apple-RequestReceivedTimestamp: 169456617
+
+
+RaopClient: RTSP request failed with status 403: Forbidden
+RaopClient: OPTIONS request failed
+AirPlayManager: Connection failed - RTSP request failed: 403 Forbidden
+GUI Error: Connection failed: RTSP request failed: 403 Forbidden
+AirPlayPluginEditor: Connect button clicked
+AirPlayPluginEditor: Selected row: 1, devices.size(): 5
 AirPlayPluginEditor: Attempting to connect to device: 542A1B72B898@Sonos Move (big)
 AirPlayManager: connectToDevice called for: 542A1B72B898@Sonos Move (big) at Sonos-542A1B72B898.local:7000
 AirPlayManager: Streamer exists, attempting connection
 [RaopClient] connect() called for device: 542A1B72B898@Sonos Move (big) at Sonos-542A1B72B898.local:7000
-RaopClient: Connection state changed to Connecting...
 [RaopClient] Connection state set to Connecting
+RaopClient: Shutting down audio socket (port 6000)
+RaopClient: Recreated audio socket at 10471e5c0
+RaopClient: Shutting down control socket (port 6001)
+RaopClient: Recreated control socket at 104720a00
+RaopClient: Shutting down timing socket (port 6002)
+RaopClient: Recreated timing socket at 104728c10
+RaopClient: Selected available ports - audio:6000 control:6001 timing:6002
 RaopClient: Creating UDP sockets - audio:6000 control:6001 timing:6002
-RaopClient: Binding audio socket to port 6000 (socket at 11ff3c380)
+RaopClient: Binding audio socket to port 6000 (socket at 10471e5c0)
 RaopClient: Successfully bound audio socket to port 6000
-RaopClient: Binding control socket to port 6001 (socket at 11ff3c400)
+RaopClient: Binding control socket to port 6001 (socket at 104720a00)
 RaopClient: Successfully bound control socket to port 6001
-RaopClient: Binding timing socket to port 6002 (socket at 11ff3c480)
+RaopClient: Binding timing socket to port 6002 (socket at 104728c10)
 RaopClient: Successfully bound timing socket to port 6002
 RaopClient: All UDP sockets created successfully
 RaopClient: Attempting TCP connection to Sonos-542A1B72B898.local:7000
@@ -33,10 +96,13 @@ RaopClient: Sending OPTIONS request
 RaopClient: Sending RTSP request: OPTIONS * RTSP/1.0
 CSeq: 1
 User-Agent: FreeCaster/1.0
-Apple-Challenge: PTEmB/ELNZFu8iKCPFQwGA==
+Apple-Challenge: yNwF7PqLYCKZADkiH/SAhg==
+Client-Instance: 8889FD52F5C8016E
+DACP-ID: 8889FD52F5C8016E
+Apple-Device-ID: 52:F3:C7:2D:73:6D
 
 
-RaopClient: Successfully sent 102 bytes
+RaopClient: Successfully sent 200 bytes
 RaopClient: Waiting for RTSP response...
 RaopClient: Received RTSP response: RTSP/1.0 200 OK
 Public: ANNOUNCE, SETUP, RECORD, PAUSE, FLUSH, FLUSHBUFFERED, TEARDOWN, OPTIONS, POST, GET, PUT
@@ -47,10 +113,15 @@ CSeq: 1
 RaopClient: RTSP request successful with status 200
 RaopClient: Device did not send Apple-Response (auth not supported)
 RaopClient: Sending ANNOUNCE request
+RaopClient: Server public key from TXT record: e4a6e08fc42d1608ad70e41022efddc53a62a74fa6ae3fe500eff9dac246423f
+RaopClient: Using fallback auth fields (server key parsing failed)
 RaopClient: Sending RTSP request: ANNOUNCE rtsp://Sonos-542A1B72B898.local/stream RTSP/1.0
 CSeq: 2
 Content-Type: application/sdp
 User-Agent: FreeCaster/1.0
+Client-Instance: 8889FD52F5C8016E
+DACP-ID: 8889FD52F5C8016E
+Apple-Device-ID: 52:F3:C7:2D:73:6D
 Content-Length: 364
 
 v=0
@@ -61,10 +132,364 @@ t=0 0
 m=audio 0 RTP/AVP 96
 a=rtpmap:96 AppleLossless
 a=fmtp:96 352 0 16 40 10 14 2 255 0 0 44100
-a=rsaaeskey:MFwwDQYJKoZIhvcNAQEBBQADSwAwSAJBAN/w10cZd/QkgpEJkuEEcMsVXNtaw3qEVJIt2n6RfBG9TOqCIWvoJGM0gAxp+SV/WodihkfQjot7MBcvfsW6siECAwEAAQ==
+a=rsaaeskey:MFwwDQYJKoZIhvcNAQEBBQADSwAwSAJBALWF7i2VaZ93VstHxW6+xDjDarW1kePejAWE8iy4RdNIwO1HxzvlGJJ1AOM18x7SfsERIy02IjaVRSQOruv4PZcCAwEAAQ==
 a=aesiv:AAAAAAAAAAAAAAAAAAAAAA==
 
-RaopClient: Successfully sent 513 bytes
+RaopClient: Successfully sent 611 bytes
+RaopClient: Waiting for RTSP response...
+RaopClient: Received RTSP response: RTSP/1.0 403 Forbidden
+Content-Length: 0
+Server: AirTunes/366.0
+CSeq: 2
+
+
+RaopClient: RTSP request failed with status 403: Forbidden
+RaopClient: ANNOUNCE request failed
+AirPlayManager: Connection failed - RTSP request failed: 403 Forbidden
+GUI Error: Connection failed: RTSP request failed: 403 Forbidden
+AirPlayPluginEditor: Connect button clicked
+AirPlayPluginEditor: Selected row: 3, devices.size(): 5
+AirPlayPluginEditor: Attempting to connect to device: BBBBB6A484B8@Sonos Move (big)+
+AirPlayManager: connectToDevice called for: BBBBB6A484B8@Sonos Move (big)+ at a0d7b954-airsonos.local:55799
+AirPlayManager: Streamer exists, attempting connection
+[RaopClient] connect() called for device: BBBBB6A484B8@Sonos Move (big)+ at a0d7b954-airsonos.local:55799
+[RaopClient] Connection state set to Connecting
+RaopClient: Shutting down audio socket (port 6000)
+RaopClient: Recreated audio socket at 104806710
+RaopClient: Shutting down control socket (port 6001)
+RaopClient: Recreated control socket at 11bddd890
+RaopClient: Shutting down timing socket (port 6002)
+RaopClient: Recreated timing socket at 11bde5a80
+RaopClient: Selected available ports - audio:6000 control:6001 timing:6002
+RaopClient: Creating UDP sockets - audio:6000 control:6001 timing:6002
+RaopClient: Binding audio socket to port 6000 (socket at 104806710)
+RaopClient: Successfully bound audio socket to port 6000
+RaopClient: Binding control socket to port 6001 (socket at 11bddd890)
+RaopClient: Successfully bound control socket to port 6001
+RaopClient: Binding timing socket to port 6002 (socket at 11bde5a80)
+RaopClient: Successfully bound timing socket to port 6002
+RaopClient: All UDP sockets created successfully
+RaopClient: Attempting TCP connection to a0d7b954-airsonos.local:55799
+RaopClient: TCP connection established successfully
+RaopClient: TCP connection established, proceeding with RTSP handshake
+RaopClient: Starting RTSP handshake
+RaopClient: Sending OPTIONS request
+RaopClient: Sending RTSP request: OPTIONS * RTSP/1.0
+CSeq: 1
+User-Agent: FreeCaster/1.0
+Apple-Challenge: U9y2848jW9bZ9YPwi34YDg==
+Client-Instance: 8889FD52F5C8016E
+DACP-ID: 8889FD52F5C8016E
+Apple-Device-ID: 52:F3:C7:2D:73:6D
+
+
+RaopClient: Successfully sent 200 bytes
+RaopClient: Waiting for RTSP response...
+RaopClient: Received RTSP response: RTSP/1.0 200 OK
+Apple-Response: eesXtgue6gGd7KzjE60RE2cU5scqc6qEuZBZYeVr5Nt5/yEKZyE7af6Wl8rsNTbeGEFtNPKYkO2vourDmgnexghgAXi+E+e7OktATvgWowI9oK/DayfP/8TlNgYoEywdp2vxyzzhFmRFKBOPUl6bDM0Nyv2K9C7xpQgyjEIv9rdv0EahMhG20HO/Mb6eA5fGB+HuzYUphgTmp2X+y/Plh5s4wT+Nr6pqs0TjAgAJ1m+AoEVe7UOaenA6GtnM15nYZxunzaX86eTQUThMqwOA6lwmJxTRegtYuBLUJshC6S4MFv91NZrjrDhYg1ZxywdIueh6PoNFf+ufeMcKHCCDPQ
+Public: ANNOUNCE, SETUP, RECORD, PAUSE, FLUSH, TEARDOWN, OPTIONS, GET_PARAMETER, SET_PARAMETER
+Audio-Jack-Status: connected; type=analog
+CSeq: 1
+
+
+RaopClient: RTSP request successful with status 200
+RaopClient: Received Apple-Response: eesXtgue6gGd7KzjE60RE2cU5scqc6qEuZBZYeVr5Nt5/yEKZyE7af6Wl8rsNTbeGEFtNPKYkO2vourDmgnexghgAXi+E+e7OktATvgWowI9oK/DayfP/8TlNgYoEywdp2vxyzzhFmRFKBOPUl6bDM0Nyv2K9C7xpQgyjEIv9rdv0EahMhG20HO/Mb6eA5fGB+HuzYUphgTmp2X+y/Plh5s4wT+Nr6pqs0TjAgAJ1m+AoEVe7UOaenA6GtnM15nYZxunzaX86eTQUThMqwOA6lwmJxTRegtYuBLUJshC6S4MFv91NZrjrDhYg1ZxywdIueh6PoNFf+ufeMcKHCCDPQ
+RaopClient: Sending ANNOUNCE request
+RaopClient: Server public key from TXT record: 
+RaopClient: Using fallback auth fields (no server key)
+RaopClient: Sending RTSP request: ANNOUNCE rtsp://a0d7b954-airsonos.local/stream RTSP/1.0
+CSeq: 2
+Content-Type: application/sdp
+User-Agent: FreeCaster/1.0
+Client-Instance: 8889FD52F5C8016E
+DACP-ID: 8889FD52F5C8016E
+Apple-Device-ID: 52:F3:C7:2D:73:6D
+Content-Length: 364
+
+v=0
+o=FreeCaster 0 0 IN IP4 127.0.0.1
+s=FreeCaster Audio Stream
+c=IN IP4 127.0.0.1
+t=0 0
+m=audio 0 RTP/AVP 96
+a=rtpmap:96 AppleLossless
+a=fmtp:96 352 0 16 40 10 14 2 255 0 0 44100
+a=rsaaeskey:MFwwDQYJKoZIhvcNAQEBBQADSwAwSAJBALWF7i2VaZ93VstHxW6+xDjDarW1kePejAWE8iy4RdNIwO1HxzvlGJJ1AOM18x7SfsERIy02IjaVRSQOruv4PZcCAwEAAQ==
+a=aesiv:AAAAAAAAAAAAAAAAAAAAAA==
+
+RaopClient: Successfully sent 610 bytes
+RaopClient: Waiting for RTSP response...
+RaopClient: Received RTSP response: RTSP/1.0 200 OK
+Audio-Jack-Status: connected; type=analog
+CSeq: 2
+
+
+RaopClient: RTSP request successful with status 200
+RaopClient: Sending SETUP request
+RaopClient: Sending RTSP request: SETUP rtsp://a0d7b954-airsonos.local/stream RTSP/1.0
+CSeq: 3
+Transport: RTP/AVP/UDP;unicast;mode=record;client_port=6000-6001
+Client-Instance: 8889FD52F5C8016E
+DACP-ID: 8889FD52F5C8016E
+Apple-Device-ID: 52:F3:C7:2D:73:6D
+
+
+RaopClient: Successfully sent 229 bytes
+RaopClient: Waiting for RTSP response...
+RaopClient: Received RTSP response: RTSP/1.0 500 Internal Error
+
+
+RaopClient: RTSP request failed with status 500: Internal Error
+RaopClient: SETUP request failed
+AirPlayManager: Connection failed - RTSP request failed: 500 Internal Error
+GUI Error: Connection failed: RTSP request failed: 500 Internal Error
+AirPlayPluginEditor: Connect button clicked
+AirPlayPluginEditor: Selected row: 4, devices.size(): 5
+AirPlayPluginEditor: Attempting to connect to device: BBBB9F2027C9@Sonos Beam+
+AirPlayManager: connectToDevice called for: BBBB9F2027C9@Sonos Beam+ at a0d7b954-airsonos.local:59361
+AirPlayManager: Streamer exists, attempting connection
+[RaopClient] connect() called for device: BBBB9F2027C9@Sonos Beam+ at a0d7b954-airsonos.local:59361
+[RaopClient] Connection state set to Connecting
+RaopClient: Shutting down audio socket (port 6000)
+RaopClient: Recreated audio socket at 11f7aedf0
+RaopClient: Shutting down control socket (port 6001)
+RaopClient: Recreated control socket at 11f7b2810
+RaopClient: Shutting down timing socket (port 6002)
+RaopClient: Recreated timing socket at 11f7b59f0
+RaopClient: Selected available ports - audio:6000 control:6001 timing:6002
+RaopClient: Creating UDP sockets - audio:6000 control:6001 timing:6002
+RaopClient: Binding audio socket to port 6000 (socket at 11f7aedf0)
+RaopClient: Successfully bound audio socket to port 6000
+RaopClient: Binding control socket to port 6001 (socket at 11f7b2810)
+RaopClient: Successfully bound control socket to port 6001
+RaopClient: Binding timing socket to port 6002 (socket at 11f7b59f0)
+RaopClient: Successfully bound timing socket to port 6002
+RaopClient: All UDP sockets created successfully
+RaopClient: Attempting TCP connection to a0d7b954-airsonos.local:59361
+RaopClient: TCP connection established successfully
+RaopClient: TCP connection established, proceeding with RTSP handshake
+RaopClient: Starting RTSP handshake
+RaopClient: Sending OPTIONS request
+RaopClient: Sending RTSP request: OPTIONS * RTSP/1.0
+CSeq: 1
+User-Agent: FreeCaster/1.0
+Apple-Challenge: jgZY1fstXFbm86KShjH71w==
+Client-Instance: 8889FD52F5C8016E
+DACP-ID: 8889FD52F5C8016E
+Apple-Device-ID: 52:F3:C7:2D:73:6D
+
+
+RaopClient: Successfully sent 200 bytes
+RaopClient: Waiting for RTSP response...
+RaopClient: Received RTSP response: RTSP/1.0 200 OK
+Apple-Response: 2aHsV+2tPk4lctrmonfQaIaJ/TT8hWkS48YjMrb4/nFjo/i2cp8ynqr8cPaDGna4IjxZXismHGzv7zoLEMjU3rh3ATjc4KyMDMspv9vXfGiq5f3egmfpxGsbqjhGuWAN6vLsOzDRzqsLKmwRvt8bVrlBTiAmz+8K+9ezR6EBzxKazkJyJuE8YNA2Jpy9uzc36kgHNrajd7y28qVP9N4jk02n+udgKktHopFK9bWcPkswhI6Rd5wMHGnX4r0BFOJQNLrprDukXQ5A5dB9WsztIf38yJbJV0EkPp8klKvYRswT9PBd6qDN2khsFolQUoK6Hx/ZlZ/5glyNTC5HpYzo8g
+Public: ANNOUNCE, SETUP, RECORD, PAUSE, FLUSH, TEARDOWN, OPTIONS, GET_PARAMETER, SET_PARAMETER
+Audio-Jack-Status: connected; type=analog
+CSeq: 1
+
+
+RaopClient: RTSP request successful with status 200
+RaopClient: Received Apple-Response: 2aHsV+2tPk4lctrmonfQaIaJ/TT8hWkS48YjMrb4/nFjo/i2cp8ynqr8cPaDGna4IjxZXismHGzv7zoLEMjU3rh3ATjc4KyMDMspv9vXfGiq5f3egmfpxGsbqjhGuWAN6vLsOzDRzqsLKmwRvt8bVrlBTiAmz+8K+9ezR6EBzxKazkJyJuE8YNA2Jpy9uzc36kgHNrajd7y28qVP9N4jk02n+udgKktHopFK9bWcPkswhI6Rd5wMHGnX4r0BFOJQNLrprDukXQ5A5dB9WsztIf38yJbJV0EkPp8klKvYRswT9PBd6qDN2khsFolQUoK6Hx/ZlZ/5glyNTC5HpYzo8g
+RaopClient: Sending ANNOUNCE request
+RaopClient: Server public key from TXT record: 
+RaopClient: Using fallback auth fields (no server key)
+RaopClient: Sending RTSP request: ANNOUNCE rtsp://a0d7b954-airsonos.local/stream RTSP/1.0
+CSeq: 2
+Content-Type: application/sdp
+User-Agent: FreeCaster/1.0
+Client-Instance: 8889FD52F5C8016E
+DACP-ID: 8889FD52F5C8016E
+Apple-Device-ID: 52:F3:C7:2D:73:6D
+Content-Length: 364
+
+v=0
+o=FreeCaster 0 0 IN IP4 127.0.0.1
+s=FreeCaster Audio Stream
+c=IN IP4 127.0.0.1
+t=0 0
+m=audio 0 RTP/AVP 96
+a=rtpmap:96 AppleLossless
+a=fmtp:96 352 0 16 40 10 14 2 255 0 0 44100
+a=rsaaeskey:MFwwDQYJKoZIhvcNAQEBBQADSwAwSAJBALWF7i2VaZ93VstHxW6+xDjDarW1kePejAWE8iy4RdNIwO1HxzvlGJJ1AOM18x7SfsERIy02IjaVRSQOruv4PZcCAwEAAQ==
+a=aesiv:AAAAAAAAAAAAAAAAAAAAAA==
+
+RaopClient: Successfully sent 610 bytes
+RaopClient: Waiting for RTSP response...
+RaopClient: Received RTSP response: RTSP/1.0 200 OK
+Audio-Jack-Status: connected; type=analog
+CSeq: 2
+
+
+RaopClient: RTSP request successful with status 200
+RaopClient: Sending SETUP request
+RaopClient: Sending RTSP request: SETUP rtsp://a0d7b954-airsonos.local/stream RTSP/1.0
+CSeq: 3
+Transport: RTP/AVP/UDP;unicast;mode=record;client_port=6000-6001
+Client-Instance: 8889FD52F5C8016E
+DACP-ID: 8889FD52F5C8016E
+Apple-Device-ID: 52:F3:C7:2D:73:6D
+
+
+RaopClient: Successfully sent 229 bytes
+RaopClient: Waiting for RTSP response...
+RaopClient: Received RTSP response: RTSP/1.0 500 Internal Error
+
+
+RaopClient: RTSP request failed with status 500: Internal Error
+RaopClient: SETUP request failed
+AirPlayManager: Connection failed - RTSP request failed: 500 Internal Error
+GUI Error: Connection failed: RTSP request failed: 500 Internal Error
+AirPlayPluginEditor: Connect button clicked
+AirPlayPluginEditor: Selected row: 2, devices.size(): 5
+AirPlayPluginEditor: Attempting to connect to device: 347E5C94F923@Sonos Beam
+AirPlayManager: connectToDevice called for: 347E5C94F923@Sonos Beam at Sonos-347E5C94F923.local:7000
+AirPlayManager: Streamer exists, attempting connection
+[RaopClient] connect() called for device: 347E5C94F923@Sonos Beam at Sonos-347E5C94F923.local:7000
+[RaopClient] Connection state set to Connecting
+RaopClient: Shutting down audio socket (port 6000)
+RaopClient: Recreated audio socket at 11f62bfd0
+RaopClient: Shutting down control socket (port 6001)
+RaopClient: Recreated control socket at 11f62a960
+RaopClient: Shutting down timing socket (port 6002)
+RaopClient: Recreated timing socket at 11f6284d0
+RaopClient: Selected available ports - audio:6000 control:6001 timing:6002
+RaopClient: Creating UDP sockets - audio:6000 control:6001 timing:6002
+RaopClient: Binding audio socket to port 6000 (socket at 11f62bfd0)
+RaopClient: Successfully bound audio socket to port 6000
+RaopClient: Binding control socket to port 6001 (socket at 11f62a960)
+RaopClient: Successfully bound control socket to port 6001
+RaopClient: Binding timing socket to port 6002 (socket at 11f6284d0)
+RaopClient: Successfully bound timing socket to port 6002
+RaopClient: All UDP sockets created successfully
+RaopClient: Attempting TCP connection to Sonos-347E5C94F923.local:7000
+RaopClient: TCP connection established successfully
+RaopClient: TCP connection established, proceeding with RTSP handshake
+RaopClient: Starting RTSP handshake
+RaopClient: Sending OPTIONS request
+RaopClient: Sending RTSP request: OPTIONS * RTSP/1.0
+CSeq: 1
+User-Agent: FreeCaster/1.0
+Apple-Challenge: 5o25PqZqaPjdUpxhZrtsmA==
+Client-Instance: 8889FD52F5C8016E
+DACP-ID: 8889FD52F5C8016E
+Apple-Device-ID: 52:F3:C7:2D:73:6D
+
+
+RaopClient: Successfully sent 200 bytes
+RaopClient: Waiting for RTSP response...
+RaopClient: Received RTSP response: RTSP/1.0 200 OK
+Public: ANNOUNCE, SETUP, RECORD, PAUSE, FLUSH, FLUSHBUFFERED, TEARDOWN, OPTIONS, POST, GET, PUT
+Server: AirTunes/366.0
+CSeq: 1
+
+
+RaopClient: RTSP request successful with status 200
+RaopClient: Device did not send Apple-Response (auth not supported)
+RaopClient: Sending ANNOUNCE request
+RaopClient: Server public key from TXT record: 47eedfd74d9ff04126a9b0881540e5aaf701b59687cf373e9e98e5b54238db5a
+RaopClient: Using fallback auth fields (server key parsing failed)
+RaopClient: Sending RTSP request: ANNOUNCE rtsp://Sonos-347E5C94F923.local/stream RTSP/1.0
+CSeq: 2
+Content-Type: application/sdp
+User-Agent: FreeCaster/1.0
+Client-Instance: 8889FD52F5C8016E
+DACP-ID: 8889FD52F5C8016E
+Apple-Device-ID: 52:F3:C7:2D:73:6D
+Content-Length: 364
+
+v=0
+o=FreeCaster 0 0 IN IP4 127.0.0.1
+s=FreeCaster Audio Stream
+c=IN IP4 127.0.0.1
+t=0 0
+m=audio 0 RTP/AVP 96
+a=rtpmap:96 AppleLossless
+a=fmtp:96 352 0 16 40 10 14 2 255 0 0 44100
+a=rsaaeskey:MFwwDQYJKoZIhvcNAQEBBQADSwAwSAJBALWF7i2VaZ93VstHxW6+xDjDarW1kePejAWE8iy4RdNIwO1HxzvlGJJ1AOM18x7SfsERIy02IjaVRSQOruv4PZcCAwEAAQ==
+a=aesiv:AAAAAAAAAAAAAAAAAAAAAA==
+
+RaopClient: Successfully sent 611 bytes
+RaopClient: Waiting for RTSP response...
+RaopClient: Received RTSP response: RTSP/1.0 403 Forbidden
+Content-Length: 0
+Server: AirTunes/366.0
+CSeq: 2
+
+
+RaopClient: RTSP request failed with status 403: Forbidden
+RaopClient: ANNOUNCE request failed
+AirPlayManager: Connection failed - RTSP request failed: 403 Forbidden
+GUI Error: Connection failed: RTSP request failed: 403 Forbidden
+AirPlayPluginEditor: Connect button clicked
+AirPlayPluginEditor: Selected row: 1, devices.size(): 5
+AirPlayPluginEditor: Attempting to connect to device: 542A1B72B898@Sonos Move (big)
+AirPlayManager: connectToDevice called for: 542A1B72B898@Sonos Move (big) at Sonos-542A1B72B898.local:7000
+AirPlayManager: Streamer exists, attempting connection
+[RaopClient] connect() called for device: 542A1B72B898@Sonos Move (big) at Sonos-542A1B72B898.local:7000
+[RaopClient] Connection state set to Connecting
+RaopClient: Shutting down audio socket (port 6000)
+RaopClient: Recreated audio socket at 11f7aedf0
+RaopClient: Shutting down control socket (port 6001)
+RaopClient: Recreated control socket at 11f7b3320
+RaopClient: Shutting down timing socket (port 6002)
+RaopClient: Recreated timing socket at 11f7ba000
+RaopClient: Selected available ports - audio:6000 control:6001 timing:6002
+RaopClient: Creating UDP sockets - audio:6000 control:6001 timing:6002
+RaopClient: Binding audio socket to port 6000 (socket at 11f7aedf0)
+RaopClient: Successfully bound audio socket to port 6000
+RaopClient: Binding control socket to port 6001 (socket at 11f7b3320)
+RaopClient: Successfully bound control socket to port 6001
+RaopClient: Binding timing socket to port 6002 (socket at 11f7ba000)
+RaopClient: Successfully bound timing socket to port 6002
+RaopClient: All UDP sockets created successfully
+RaopClient: Attempting TCP connection to Sonos-542A1B72B898.local:7000
+RaopClient: TCP connection established successfully
+RaopClient: TCP connection established, proceeding with RTSP handshake
+RaopClient: Starting RTSP handshake
+RaopClient: Sending OPTIONS request
+RaopClient: Sending RTSP request: OPTIONS * RTSP/1.0
+CSeq: 1
+User-Agent: FreeCaster/1.0
+Apple-Challenge: A+So3qUEGiVjjiWHtwT6QQ==
+Client-Instance: 8889FD52F5C8016E
+DACP-ID: 8889FD52F5C8016E
+Apple-Device-ID: 52:F3:C7:2D:73:6D
+
+
+RaopClient: Successfully sent 200 bytes
+RaopClient: Waiting for RTSP response...
+RaopClient: Received RTSP response: RTSP/1.0 200 OK
+Public: ANNOUNCE, SETUP, RECORD, PAUSE, FLUSH, FLUSHBUFFERED, TEARDOWN, OPTIONS, POST, GET, PUT
+Server: AirTunes/366.0
+CSeq: 1
+
+
+RaopClient: RTSP request successful with status 200
+RaopClient: Device did not send Apple-Response (auth not supported)
+RaopClient: Sending ANNOUNCE request
+RaopClient: Server public key from TXT record: e4a6e08fc42d1608ad70e41022efddc53a62a74fa6ae3fe500eff9dac246423f
+RaopClient: Using fallback auth fields (server key parsing failed)
+RaopClient: Sending RTSP request: ANNOUNCE rtsp://Sonos-542A1B72B898.local/stream RTSP/1.0
+CSeq: 2
+Content-Type: application/sdp
+User-Agent: FreeCaster/1.0
+Client-Instance: 8889FD52F5C8016E
+DACP-ID: 8889FD52F5C8016E
+Apple-Device-ID: 52:F3:C7:2D:73:6D
+Content-Length: 364
+
+v=0
+o=FreeCaster 0 0 IN IP4 127.0.0.1
+s=FreeCaster Audio Stream
+c=IN IP4 127.0.0.1
+t=0 0
+m=audio 0 RTP/AVP 96
+a=rtpmap:96 AppleLossless
+a=fmtp:96 352 0 16 40 10 14 2 255 0 0 44100
+a=rsaaeskey:MFwwDQYJKoZIhvcNAQEBBQADSwAwSAJBALWF7i2VaZ93VstHxW6+xDjDarW1kePejAWE8iy4RdNIwO1HxzvlGJJ1AOM18x7SfsERIy02IjaVRSQOruv4PZcCAwEAAQ==
+a=aesiv:AAAAAAAAAAAAAAAAAAAAAA==
+
+RaopClient: Successfully sent 611 bytes
 RaopClient: Waiting for RTSP response...
 RaopClient: Received RTSP response: RTSP/1.0 403 Forbidden
 Content-Length: 0

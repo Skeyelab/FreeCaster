@@ -61,6 +61,7 @@ public:
     // Socket management for testing
     bool createUdpSockets();
     void closeUdpSockets();
+    bool selectAvailableClientPorts();
 
 private:
     // Connection management
@@ -141,4 +142,9 @@ private:
     int clientAudioPort = 6000;
     int clientControlPort = 6001;
     int clientTimingPort = 6002;
+
+    // Client identity headers (used by some RAOP servers)
+    juce::String clientInstanceId;  // e.g., 16-hex uppercase
+    juce::String dacpId;            // e.g., 16-hex uppercase
+    juce::String appleDeviceId;     // e.g., 12-hex with colons
 };

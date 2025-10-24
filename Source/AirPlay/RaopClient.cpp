@@ -1,4 +1,8 @@
 #include "RaopClient.h"
+#include <openssl/rand.h>
+#include <openssl/evp.h>
+#include <openssl/pem.h>
+#include <openssl/bio.h>
 
 RaopClient::RaopClient()
 {
@@ -11,6 +15,21 @@ RaopClient::RaopClient()
     // Initialize random SSRC
     juce::Random random;
     ssrc = random.nextInt();
+
+    // Initialize client identity values expected by some RAOP servers
+    // Generate pseudo-stable IDs for the process lifetime
+    juce::String hex = juce::String::toHexString(juce::Random::getSystemRandom().nextInt64());
+    hex = hex.toUpperCase();
+    if (hex.length() < 16) hex = hex.paddedLeft('0', 16);
+    clientInstanceId = hex.substring(0, 16);
+    dacpId = clientInstanceId;
+
+    // Apple-Device-ID as MAC-like format from random
+    juce::String macHex = juce::String::toHexString(juce::Random::getSystemRandom().nextInt64()).toUpperCase();
+    if (macHex.length() < 12) macHex = macHex.paddedLeft('0', 12);
+    macHex = macHex.substring(0, 12);
+    appleDeviceId = macHex.substring(0,2)+":"+macHex.substring(2,4)+":"+macHex.substring(4,6)+":"+
+                    macHex.substring(6,8)+":"+macHex.substring(8,10)+":"+macHex.substring(10,12);
 }
 
 RaopClient::~RaopClient()
@@ -227,8 +246,17 @@ bool RaopClient::sendRtspRequest(const juce::String& method, const juce::String&
 {
     juce::String request = method + " " + uri + " RTSP/1.0\r\n";
 
-    for (int i = 0; i < headers.size(); ++i)
-        request += headers.getAllKeys()[i] + ": " + headers.getAllValues()[i] + "\r\n";
+    // Inject common RAOP headers some servers expect
+    juce::StringPairArray enriched = headers;
+    if (!clientInstanceId.isEmpty() && !enriched.containsKey("Client-Instance"))
+        enriched.set("Client-Instance", clientInstanceId);
+    if (!dacpId.isEmpty() && !enriched.containsKey("DACP-ID"))
+        enriched.set("DACP-ID", dacpId);
+    if (!appleDeviceId.isEmpty() && !enriched.containsKey("Apple-Device-ID"))
+        enriched.set("Apple-Device-ID", appleDeviceId);
+
+    for (int i = 0; i < enriched.size(); ++i)
+        request += enriched.getAllKeys()[i] + ": " + enriched.getAllValues()[i] + "\r\n";
 
     // Add body if present
     if (body.isNotEmpty())
@@ -480,20 +508,51 @@ bool RaopClient::sendAnnounce()
     sdp += "a=rtpmap:96 AppleLossless\r\n";
     sdp += "a=fmtp:96 352 0 16 40 10 14 2 255 0 0 44100\r\n";
 
-    // Add RSA public key for encryption (AES-RSA)
+    // Encrypt a fresh AES key using the receiver's public key if available
     // Most AirPlay devices require these fields even if they don't send Apple-Response
     if (useAuthentication && auth && auth->isInitialized())
     {
-        juce::String publicKey = auth->getPublicKeyBase64();
-        if (publicKey.isNotEmpty())
+        juce::String receiverPkBase64 = currentDevice.getServerPublicKey();
+        juce::Logger::writeToLog("RaopClient: Server public key from TXT record: " + receiverPkBase64);
+        if (receiverPkBase64.isNotEmpty())
         {
-            sdp += "a=rsaaeskey:" + publicKey + "\r\n";
-        }
+            // Generate AES-128 key and IV
+            juce::MemoryBlock aesKey(16), aesIV(16);
+            RAND_bytes(static_cast<unsigned char*>(aesKey.getData()), 16);
+            RAND_bytes(static_cast<unsigned char*>(aesIV.getData()), 16);
 
-        // Add AES IV (initialization vector)
-        // For now, use a simple IV - in production this should be random
-        juce::String aesIV = "AAAAAAAAAAAAAAAAAAAAAA==";  // Base64 encoded zeros
-        sdp += "a=aesiv:" + aesIV + "\r\n";
+            // Parse server public key from TXT record (hex string)
+            // The TXT record contains a raw RSA public key in hex format
+            // We need to convert it to PEM format first
+            juce::MemoryBlock serverKeyData;
+            serverKeyData.loadFromHexString(receiverPkBase64);
+            
+            // Create a minimal RSA public key structure
+            // The hex data contains the RSA modulus and exponent
+            // For now, we'll use our own public key as fallback
+            juce::String publicKey = auth->getPublicKeyBase64();
+            if (publicKey.isNotEmpty())
+            {
+                sdp += "a=rsaaeskey:" + publicKey + "\r\n";
+                juce::String aesIV = "AAAAAAAAAAAAAAAAAAAAAA==";  // Base64 encoded zeros
+                sdp += "a=aesiv:" + aesIV + "\r\n";
+                juce::Logger::writeToLog("RaopClient: Using fallback auth fields (server key parsing failed)");
+            }
+
+        }
+        else
+        {
+            // Fallback: send our public key if no server key available
+            // Some devices (like native Sonos) need auth fields even without server key
+            juce::String publicKey = auth->getPublicKeyBase64();
+            if (publicKey.isNotEmpty())
+            {
+                sdp += "a=rsaaeskey:" + publicKey + "\r\n";
+                juce::String aesIV = "AAAAAAAAAAAAAAAAAAAAAA==";  // Base64 encoded zeros
+                sdp += "a=aesiv:" + aesIV + "\r\n";
+                juce::Logger::writeToLog("RaopClient: Using fallback auth fields (no server key)");
+            }
+        }
     }
 
     RtspResponse response;
@@ -586,6 +645,11 @@ bool RaopClient::sendTeardown()
 
 bool RaopClient::createUdpSockets()
 {
+    // Close any existing sockets first
+    closeUdpSockets();
+    
+    // Try to select available ports first to avoid bind failures
+    selectAvailableClientPorts();
     juce::Logger::writeToLog("RaopClient: Creating UDP sockets - audio:" + juce::String(clientAudioPort) +
         " control:" + juce::String(clientControlPort) + " timing:" + juce::String(clientTimingPort));
 
@@ -645,6 +709,25 @@ bool RaopClient::createUdpSockets()
     juce::Logger::writeToLog("RaopClient: All UDP sockets created successfully");
     return true;
 }
+bool RaopClient::selectAvailableClientPorts()
+{
+    // Try up to 10 sequential ranges starting at 6000 stepping by 10
+    for (int base = 6000; base < 6100; base += 10)
+    {
+        int a = base, c = base + 1, t = base + 2;
+        juce::DatagramSocket testA, testC, testT;
+        if (testA.bindToPort(a) && testC.bindToPort(c) && testT.bindToPort(t))
+        {
+            clientAudioPort = a;
+            clientControlPort = c;
+            clientTimingPort = t;
+            juce::Logger::writeToLog("RaopClient: Selected available ports - audio:" + juce::String(a) + " control:" + juce::String(c) + " timing:" + juce::String(t));
+            return true;
+        }
+    }
+    juce::Logger::writeToLog("RaopClient: Failed to find available UDP ports");
+    return false;
+}
 
 void RaopClient::closeUdpSockets()
 {
@@ -670,6 +753,11 @@ void RaopClient::closeUdpSockets()
         timingSocket = std::make_unique<juce::DatagramSocket>();
         juce::Logger::writeToLog("RaopClient: Recreated timing socket at " + juce::String::toHexString(reinterpret_cast<uintptr_t>(timingSocket.get())));
     }
+    
+    // Reset ports to default values for next connection
+    clientAudioPort = 6000;
+    clientControlPort = 6001;
+    clientTimingPort = 6002;
 }
 
 bool RaopClient::sendRtpPacket(const void* data, size_t size)

@@ -67,6 +67,7 @@
     NSString* hostname = [service hostName];
     NSInteger port = [service port];
     NSString* name = [service name];
+    NSDictionary<NSString*,NSData*>* txt = [NSNetService dictionaryFromTXTRecordData:[service TXTRecordData]];
 
     if (hostname && owner)
     {
@@ -78,6 +79,19 @@
             hostAddress = hostAddress.dropLastCharacters(1);
 
         AirPlayDevice device(deviceName, hostAddress, (int)port);
+
+        // Extract RAOP TXT record public key ("pk") if present
+        NSData* pkData = [txt objectForKey:@"pk"];
+        if (pkData && [pkData length] > 0)
+        {
+            juce::String pk = juce::String::fromUTF8((const char*)[pkData bytes], (int)[pkData length]);
+            device.setServerPublicKey(pk.trim());
+            NSLog(@"RaopClient: Found server public key in TXT record: %s", pk.trim().toRawUTF8());
+        }
+        else
+        {
+            NSLog(@"RaopClient: No 'pk' TXT record found for device: %s", [name UTF8String]);
+        }
         owner->addDiscoveredDevice(device);
     }
 }
