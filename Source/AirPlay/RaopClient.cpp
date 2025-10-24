@@ -467,7 +467,8 @@ bool RaopClient::sendAnnounce()
     sdp += "v=0\r\n";
     sdp += "o=FreeCaster 0 0 IN IP4 127.0.0.1\r\n";
     sdp += "s=FreeCaster Audio Stream\r\n";
-    sdp += "c=IN IP4 " + currentDevice.getHostAddress() + "\r\n";
+    // Connection address should be client's local IP (127.0.0.1), not server's IP
+    sdp += "c=IN IP4 127.0.0.1\r\n";
     sdp += "t=0 0\r\n";
 
     // Media description
@@ -475,8 +476,9 @@ bool RaopClient::sendAnnounce()
     sdp += "a=rtpmap:96 AppleLossless\r\n";
     sdp += "a=fmtp:96 352 0 16 40 10 14 2 255 0 0 44100\r\n";
 
-    // Add RSA public key for encryption (AES-RSA) only if device supports it
-    if (useAuthentication && auth->isInitialized() && receivedAppleResponse)
+    // Add RSA public key for encryption (AES-RSA)
+    // Most AirPlay devices require these fields even if they don't send Apple-Response
+    if (useAuthentication && auth->isInitialized())
     {
         juce::String publicKey = auth->getPublicKeyBase64();
         if (publicKey.isNotEmpty())
@@ -488,10 +490,6 @@ bool RaopClient::sendAnnounce()
         // For now, use a simple IV - in production this should be random
         juce::String aesIV = "AAAAAAAAAAAAAAAAAAAAAA==";  // Base64 encoded zeros
         sdp += "a=aesiv:" + aesIV + "\r\n";
-    }
-    else if (useAuthentication && !receivedAppleResponse)
-    {
-        juce::Logger::writeToLog("RaopClient: Skipping auth fields in SDP (device doesn't support auth)");
     }
 
     RtspResponse response;
