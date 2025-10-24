@@ -82,7 +82,7 @@ void AirPlayManager::pushAudioData(const juce::AudioBuffer<float>& audioBuffer, 
 {
     if (!isConnected())
         return;
-    
+
     buffer->write(audioBuffer, numSamples);
 }
 
@@ -114,13 +114,13 @@ void AirPlayManager::run()
 void AirPlayManager::processAudioStream()
 {
     const juce::ScopedLock sl(connectionLock);
-    
+
     if (!isConnected() || !airplayImpl)
         return;
-    
+
     juce::AudioBuffer<float> audioBuffer(2, currentSamplesPerBlock);
     int samplesRead = buffer->read(audioBuffer, currentSamplesPerBlock);
-    
+
     if (samplesRead > 0)
     {
         if (!airplayImpl->streamAudio(audioBuffer, samplesRead))
