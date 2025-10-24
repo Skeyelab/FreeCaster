@@ -4,16 +4,8 @@
 #include "../Audio/AudioEncoder.h"
 #include "../Audio/StreamBuffer.h"
 
-class AirPlayStreamer
-{
-public:
-    virtual ~AirPlayStreamer() = default;
-    virtual bool connect(const AirPlayDevice& device) = 0;
-    virtual void disconnect() = 0;
-    virtual bool isConnected() const = 0;
-    virtual bool streamAudio(const juce::AudioBuffer<float>& buffer, int numSamples) = 0;
-    virtual juce::String getLastError() const = 0;
-};
+// Forward declaration for native macOS AirPlay implementation
+class AirPlayMacImpl;
 
 class AirPlayManager : public juce::Thread
 {
@@ -48,7 +40,7 @@ private:
     void notifyError(const juce::String& error);
     void notifyStatusChange(const juce::String& status);
     
-    std::unique_ptr<AirPlayStreamer> streamer;
+    std::unique_ptr<AirPlayMacImpl> airplayImpl;
     std::unique_ptr<AudioEncoder> encoder;
     std::unique_ptr<StreamBuffer> buffer;
     

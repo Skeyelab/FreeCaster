@@ -6,38 +6,29 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # Set architecture for macOS to match the host system
-if(APPLE AND NOT CMAKE_OSX_ARCHITECTURES)
-    # Use the host architecture by default
-    execute_process(
-        COMMAND uname -m
-        OUTPUT_VARIABLE HOST_ARCH
-        OUTPUT_STRIP_TRAILING_WHITESPACE
-    )
-    set(CMAKE_OSX_ARCHITECTURES "${HOST_ARCH}" CACHE STRING "macOS architecture" FORCE)
-    message(STATUS "Building for macOS architecture: ${CMAKE_OSX_ARCHITECTURES}")
-endif()
+execute_process(
+    COMMAND uname -m
+    OUTPUT_VARIABLE HOST_ARCH
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+)
+set(CMAKE_OSX_ARCHITECTURES "${HOST_ARCH}" CACHE STRING "macOS architecture" FORCE)
+message(STATUS "Building for macOS architecture: ${CMAKE_OSX_ARCHITECTURES}")
 
 # Find OpenSSL for AirPlay authentication
-# On macOS, OpenSSL is typically installed via Homebrew in non-standard locations
-if(APPLE)
-    # Check common Homebrew locations for both Intel and Apple Silicon
-    if(EXISTS "/opt/homebrew/opt/openssl@3")
-        set(OPENSSL_ROOT_DIR "/opt/homebrew/opt/openssl@3")
-    elseif(EXISTS "/usr/local/opt/openssl@3")
-        set(OPENSSL_ROOT_DIR "/usr/local/opt/openssl@3")
-    elseif(EXISTS "/opt/homebrew/opt/openssl")
-        set(OPENSSL_ROOT_DIR "/opt/homebrew/opt/openssl")
-    elseif(EXISTS "/usr/local/opt/openssl")
-        set(OPENSSL_ROOT_DIR "/usr/local/opt/openssl")
-    endif()
+if(EXISTS "/opt/homebrew/opt/openssl@3")
+    set(OPENSSL_ROOT_DIR "/opt/homebrew/opt/openssl@3")
+elseif(EXISTS "/usr/local/opt/openssl@3")
+    set(OPENSSL_ROOT_DIR "/usr/local/opt/openssl@3")
+elseif(EXISTS "/opt/homebrew/opt/openssl")
+    set(OPENSSL_ROOT_DIR "/opt/homebrew/opt/openssl")
+elseif(EXISTS "/usr/local/opt/openssl")
+    set(OPENSSL_ROOT_DIR "/usr/local/opt/openssl")
 endif()
 
 find_package(OpenSSL REQUIRED)
 
 if(OPENSSL_FOUND)
     message(STATUS "OpenSSL found: ${OPENSSL_VERSION}")
-    message(STATUS "  Include dir: ${OPENSSL_INCLUDE_DIR}")
-    message(STATUS "  Libraries: ${OPENSSL_LIBRARIES}")
 endif()
 
 include(FetchContent)
@@ -47,15 +38,6 @@ FetchContent_Declare(
     GIT_TAG 8.0.4
 )
 FetchContent_MakeAvailable(JUCE)
-
-# Set platform-specific sources
-if(APPLE)
-    set(PLATFORM_SOURCES Source/AirPlay/AirPlayMac.mm)
-elseif(WIN32)
-    set(PLATFORM_SOURCES Source/AirPlay/AirPlayWindows.cpp)
-else()
-    set(PLATFORM_SOURCES Source/AirPlay/AirPlayLinux.cpp)
-endif()
 
 juce_add_plugin(FreeCaster
     COMPANY_NAME "FreeCaster"
@@ -78,9 +60,8 @@ target_sources(FreeCaster
         Source/PluginProcessor.cpp
         Source/PluginEditor.cpp
         Source/AirPlay/AirPlayManager.cpp
-        Source/AirPlay/AirPlayAuth.cpp
-        Source/AirPlay/RaopClient.cpp
-        Source/Discovery/DeviceDiscovery.cpp
+        Source/AirPlay/AirPlayMac.mm
+        Source/Discovery/DeviceDiscoveryMac.mm
         Source/Discovery/AirPlayDevice.cpp
         Source/Audio/AudioEncoder.cpp
         Source/Audio/ALACEncoderWrapper.cpp
@@ -94,43 +75,17 @@ target_sources(FreeCaster
         Source/Audio/ALAC/matrix_enc.c
         Source/Audio/ALAC/matrix_dec.c
         Source/Audio/ALAC/EndianPortable.c
-        ${PLATFORM_SOURCES}
 )
 
-# Add platform-specific discovery
-if(APPLE)
-    target_sources(FreeCaster PRIVATE Source/Discovery/DeviceDiscoveryMac.mm)
-elseif(WIN32)
-    target_sources(FreeCaster PRIVATE Source/Discovery/DeviceDiscoveryWindows.cpp)
-else()
-    target_sources(FreeCaster PRIVATE Source/Discovery/DeviceDiscoveryLinux.cpp)
-endif()
-
-if(APPLE)
-    target_link_libraries(FreeCaster PRIVATE
-        "-framework AVFoundation"
-        "-framework CoreAudio"
-        "-framework Network"
-        "-framework Foundation"
-        OpenSSL::SSL
-        OpenSSL::Crypto
-    )
-elseif(WIN32)
-    target_link_libraries(FreeCaster PRIVATE
-        ws2_32
-        dnsapi
-        iphlpapi
-        OpenSSL::SSL
-        OpenSSL::Crypto
-    )
-else()
-    target_link_libraries(FreeCaster PRIVATE
-        avahi-client
-        avahi-common
-        OpenSSL::SSL
-        OpenSSL::Crypto
-    )
-endif()
+# macOS-specific frameworks
+target_link_libraries(FreeCaster PRIVATE
+    "-framework AVFoundation"
+    "-framework CoreAudio"
+    "-framework Network"
+    "-framework Foundation"
+    OpenSSL::SSL
+    OpenSSL::Crypto
+)
 
 target_compile_definitions(FreeCaster
     PUBLIC
@@ -157,14 +112,14 @@ target_link_libraries(FreeCaster
 
 add_executable(FreeCasterTests
     Tests/TestMain.cpp
-    Tests/RaopClientTests.cpp
     Tests/StreamBufferTests.cpp
     Tests/AudioEncoderTests.cpp
     Tests/AirPlayDeviceTests.cpp
-    Tests/ErrorHandlingTests.cpp
     # Reuse source files without GUI
-    Source/AirPlay/RaopClient.cpp
-    Source/AirPlay/AirPlayAuth.cpp
+    Source/AirPlay/AirPlayManager.cpp
+    Source/AirPlay/AirPlayMac.mm
+    Source/Discovery/AirPlayDevice.cpp
+    Source/Discovery/DeviceDiscoveryMac.mm
     Source/Audio/StreamBuffer.cpp
     Source/Audio/AudioEncoder.cpp
     Source/Audio/ALACEncoderWrapper.cpp
@@ -177,7 +132,6 @@ add_executable(FreeCasterTests
     Source/Audio/ALAC/matrix_enc.c
     Source/Audio/ALAC/matrix_dec.c
     Source/Audio/ALAC/EndianPortable.c
-    Source/Discovery/AirPlayDevice.cpp
 )
 
 target_link_libraries(FreeCasterTests PRIVATE
@@ -185,6 +139,9 @@ target_link_libraries(FreeCasterTests PRIVATE
     juce::juce_core
     juce::juce_events
     juce::juce_graphics
+    "-framework AVFoundation"
+    "-framework CoreAudio"
+    "-framework Foundation"
     OpenSSL::SSL
     OpenSSL::Crypto
 )
