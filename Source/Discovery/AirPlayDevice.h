@@ -26,6 +26,22 @@ public:
 
     bool isValid() const { return deviceName.isNotEmpty() && hostAddress.isNotEmpty(); }
 
+    // Device type detection helpers
+    bool isAirsonosBridge() const {
+        return deviceName.containsIgnoreCase("airsonos") || 
+               hostAddress.contains("airsonos");
+    }
+    
+    bool isSonosNative() const {
+        return deviceName.containsIgnoreCase("sonos") && 
+               !isAirsonosBridge();
+    }
+    
+    bool isLegacyDevice() const {
+        return deviceId.startsWith("LIB-") || 
+               deviceName.containsIgnoreCase("LIB-");
+    }
+
 private:
     juce::String deviceName;
     juce::String hostAddress;

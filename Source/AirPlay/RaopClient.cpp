@@ -450,14 +450,38 @@ bool RaopClient::sendOptions()
 {
     juce::StringPairArray headers;
     headers.set("CSeq", juce::String(cseq++));
-    headers.set("User-Agent", "FreeCaster/1.0");
+    
+    // Use device-specific User-Agent strings for better compatibility
+    if (currentDevice.isLegacyDevice())
+    {
+        // Legacy devices (like LIB-2833) may expect iTunes user agent
+        headers.set("User-Agent", "iTunes/12.1.2 (Macintosh; OS X 10.10.3)");
+        juce::Logger::writeToLog("RaopClient: Using iTunes User-Agent for legacy device");
+    }
+    else if (currentDevice.isAirsonosBridge())
+    {
+        headers.set("User-Agent", "AirPlay/200.54.1");
+        juce::Logger::writeToLog("RaopClient: Using AirPlay User-Agent for Airsonos bridge");
+    }
+    else
+    {
+        headers.set("User-Agent", "FreeCaster/1.0");
+    }
 
     // Add Apple-Challenge for authentication (skip if auth failed to initialize)
-    if (useAuthentication && auth && auth->isInitialized())
+    // Skip for legacy devices that might not support it
+    if (useAuthentication && auth && auth->isInitialized() && !currentDevice.isLegacyDevice())
     {
         juce::String challenge = auth->generateChallenge();
         if (challenge.isNotEmpty())
+        {
             headers.set("Apple-Challenge", challenge);
+            juce::Logger::writeToLog("RaopClient: Added Apple-Challenge to OPTIONS request");
+        }
+    }
+    else if (currentDevice.isLegacyDevice())
+    {
+        juce::Logger::writeToLog("RaopClient: Skipping Apple-Challenge for legacy device");
     }
 
     RtspResponse response;
@@ -483,7 +507,7 @@ bool RaopClient::sendOptions()
     }
     else
     {
-        juce::Logger::writeToLog("RaopClient: Device did not send Apple-Response (auth not supported)");
+        juce::Logger::writeToLog("RaopClient: Device did not send Apple-Response (auth not supported or legacy device)");
     }
 
     return true;
@@ -511,7 +535,8 @@ bool RaopClient::sendAnnounce()
     sdp += "a=fmtp:96 352 0 16 40 10 14 2 255 0 0 44100\r\n";
 
     // Generate proper RSA-OAEP encrypted AES session key for RAOP/AirPlay 1
-    if (useAuthentication && auth && auth->isInitialized())
+    // Skip encryption for legacy devices that don't support it
+    if (useAuthentication && auth && auth->isInitialized() && !currentDevice.isLegacyDevice())
     {
         juce::String receiverPkBase64 = currentDevice.getServerPublicKey();
         juce::Logger::writeToLog("RaopClient: Server public key from TXT record: " + receiverPkBase64);
@@ -522,51 +547,43 @@ bool RaopClient::sendAnnounce()
             juce::MemoryBlock serverKeyData;
             serverKeyData.loadFromHexString(receiverPkBase64);
 
-            // The TXT record contains a 32-byte hex string that represents the RSA public key
-            // For RAOP/AirPlay 1, we need to encrypt a 16-byte AES key with this public key
-            if (serverKeyData.getSize() == 32) // 32 bytes = 256 bits
+            juce::Logger::writeToLog("RaopClient: Server public key size: " + juce::String(serverKeyData.getSize()) + " bytes");
+
+            // Generate random 16-byte AES session key and IV
+            juce::MemoryBlock aesKey, aesIV;
+            if (!auth->generateAesSessionKey(aesKey, aesIV))
             {
-                juce::Logger::writeToLog("RaopClient: Server public key is 32 bytes, trying simplified approach");
-
-                // Generate random 16-byte AES session key and IV
-                juce::MemoryBlock aesKey(16), aesIV(16);
-                RAND_bytes(static_cast<unsigned char*>(aesKey.getData()), 16);
-                RAND_bytes(static_cast<unsigned char*>(aesIV.getData()), 16);
-
-                // Try a different approach - create a simple encrypted key by XORing with server key
-                juce::MemoryBlock encrypted(16);
-                for (int i = 0; i < 16; i++)
-                {
-                    static_cast<unsigned char*>(encrypted.getData())[i] =
-                        static_cast<unsigned char*>(aesKey.getData())[i] ^
-                        static_cast<unsigned char*>(serverKeyData.getData())[i % 32];
-                }
-
-                juce::String rsaaeskey = juce::Base64::toBase64(encrypted.getData(), encrypted.getSize());
-                juce::String aesiv = juce::Base64::toBase64(aesIV.getData(), aesIV.getSize());
-
-                sdp += "a=rsaaeskey:" + rsaaeskey + "\r\n";
-                sdp += "a=aesiv:" + aesiv + "\r\n";
-                juce::Logger::writeToLog("RaopClient: Added XOR-encrypted AES key as rsaaeskey (simplified approach)");
+                juce::Logger::writeToLog("RaopClient: Failed to generate AES session key: " + auth->getLastError());
             }
             else
             {
-                juce::Logger::writeToLog("RaopClient: Unexpected server public key size: " + juce::String(serverKeyData.getSize()) + " bytes");
+                // Encrypt AES key with server's RSA public key using RSA-OAEP
+                juce::MemoryBlock encryptedKey;
+                if (auth->encryptAesKeyWithRsaOaep(aesKey, serverKeyData, encryptedKey))
+                {
+                    juce::String rsaaeskey = juce::Base64::toBase64(encryptedKey.getData(), encryptedKey.getSize());
+                    juce::String aesiv = juce::Base64::toBase64(aesIV.getData(), aesIV.getSize());
+
+                    sdp += "a=rsaaeskey:" + rsaaeskey + "\r\n";
+                    sdp += "a=aesiv:" + aesiv + "\r\n";
+                    juce::Logger::writeToLog("RaopClient: Added RSA-OAEP encrypted AES key (encrypted size: " + 
+                                           juce::String(encryptedKey.getSize()) + " bytes)");
+                }
+                else
+                {
+                    juce::Logger::writeToLog("RaopClient: RSA-OAEP encryption failed: " + auth->getLastError());
+                    juce::Logger::writeToLog("RaopClient: Falling back to unencrypted session");
+                }
             }
         }
         else
         {
-            // Fallback: send our public key if no server key available
-            // Some devices (like native Sonos) need auth fields even without server key
-            juce::String publicKey = auth->getPublicKeyBase64();
-            if (publicKey.isNotEmpty())
-            {
-                sdp += "a=rsaaeskey:" + publicKey + "\r\n";
-                juce::String aesIV = "AAAAAAAAAAAAAAAAAAAAAA==";  // Base64 encoded zeros
-                sdp += "a=aesiv:" + aesIV + "\r\n";
-                juce::Logger::writeToLog("RaopClient: Using fallback auth fields (no server key)");
-            }
+            juce::Logger::writeToLog("RaopClient: No server public key available, device may not require encryption");
         }
+    }
+    else if (currentDevice.isLegacyDevice())
+    {
+        juce::Logger::writeToLog("RaopClient: Skipping encryption for legacy device");
     }
 
     RtspResponse response;
@@ -579,24 +596,33 @@ bool RaopClient::sendSetup()
     juce::StringPairArray headers;
     headers.set("CSeq", juce::String(cseq++));
 
-        // Specify client UDP ports for server to send to
-        // Try different transport formats based on device type
-        juce::String transport;
-        if (currentDevice.getHostAddress().contains("airsonos"))
-        {
-            // Airsonos bridge format - try without interleaved parameter
-            transport = "RTP/AVP/UDP;unicast;mode=record;";
-            transport += "client_port=" + juce::String(clientAudioPort);
-            transport += "-" + juce::String(clientControlPort);
-            // Removed interleaved=0-1 to see if that fixes the 500 error
-        }
-        else
-        {
-            // Native AirPlay device format
-            transport = "RTP/AVP/UDP;unicast;mode=record;";
-            transport += "client_port=" + juce::String(clientAudioPort);
-            transport += "-" + juce::String(clientControlPort);
-        }
+    // Specify client UDP ports for server to send to
+    // Try different transport formats based on device type
+    juce::String transport;
+    
+    // Check if this is an Airsonos bridge or native AirPlay device
+    bool isAirsonosBridge = currentDevice.getHostAddress().contains("airsonos") ||
+                            currentDevice.getDeviceName().containsIgnoreCase("airsonos");
+    
+    if (isAirsonosBridge)
+    {
+        // Airsonos bridge format - simplified, no control_port/timing_port
+        // Based on research: Airsonos expects basic RTP/AVP/UDP format
+        transport = "RTP/AVP/UDP;unicast;interleaved=0-1;mode=record;control_port=";
+        transport += juce::String(clientControlPort);
+        transport += ";timing_port=" + juce::String(clientTimingPort);
+        juce::Logger::writeToLog("RaopClient: Using Airsonos bridge transport format");
+    }
+    else
+    {
+        // Native AirPlay device format with all three ports
+        transport = "RTP/AVP/UDP;unicast;mode=record;";
+        transport += "client_port=" + juce::String(clientAudioPort);
+        transport += "-" + juce::String(clientControlPort);
+        transport += ";control_port=" + juce::String(clientControlPort);
+        transport += ";timing_port=" + juce::String(clientTimingPort);
+        juce::Logger::writeToLog("RaopClient: Using native AirPlay transport format");
+    }
 
     headers.set("Transport", transport);
 
