@@ -437,7 +437,7 @@ bool RaopClient::sendOptions()
     // Check if device sent Apple-Response
     bool deviceSupportsAuth = response.headers.containsKey("Apple-Response");
     receivedAppleResponse = deviceSupportsAuth;
-    
+
     if (deviceSupportsAuth)
     {
         juce::String appleResponse = response.headers["Apple-Response"];

@@ -4,9 +4,9 @@
 Fixed RTSP response reading (original issue), but discovered deeper protocol issues during testing.
 
 ## Original Issue Status: ✅ FIXED
-**Issue**: AirPlay devices not responding to RTSP requests  
-**Root Cause**: Non-blocking socket read returning before device responded  
-**Solution**: Added `waitUntilReady()` call before reading responses  
+**Issue**: AirPlay devices not responding to RTSP requests
+**Root Cause**: Non-blocking socket read returning before device responded
+**Solution**: Added `waitUntilReady()` call before reading responses
 **Commit**: `f49b453`
 
 ## Current Status
