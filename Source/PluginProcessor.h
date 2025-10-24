@@ -2,7 +2,6 @@
 
 #include <JuceHeader.h>
 #include "AirPlay/AirPlayManager.h"
-#include "Discovery/DeviceDiscovery.h"
 
 class AirPlayPluginProcessor : public juce::AudioProcessor
 {

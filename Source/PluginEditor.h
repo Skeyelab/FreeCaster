@@ -120,8 +120,7 @@ private:
 
 //==============================================================================
 class AirPlayPluginEditor : public juce::AudioProcessorEditor,
-                            public juce::Timer,
-                            public DeviceDiscovery::Listener
+                            public juce::Timer
 {
 public:
     AirPlayPluginEditor(AirPlayPluginProcessor&);
@@ -132,8 +131,6 @@ public:
     
 private:
     void timerCallback() override;
-    void deviceFound(const AirPlayDevice& device) override;
-    void deviceLost(const AirPlayDevice& device) override;
     
     void updateDeviceList();
     void connectButtonClicked();

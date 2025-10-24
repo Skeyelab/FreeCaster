@@ -33,7 +33,7 @@ void AirPlayManager::connectToDevice(const AirPlayDevice& device)
     {
         connectedDevice = device;
         notifyStatusChange("Connected to: " + device.getDeviceName());
-        
+
         if (!isThreadRunning())
             startThread();
     }
@@ -49,12 +49,12 @@ void AirPlayManager::disconnectFromDevice()
 {
     juce::Logger::writeToLog("AirPlayManager: Disconnecting");
     const juce::ScopedLock sl(connectionLock);
-    
+
     if (airplayImpl)
     {
         airplayImpl->disconnect();
     }
-    
+
     notifyStatusChange("Disconnected");
 }
 
@@ -74,7 +74,7 @@ juce::String AirPlayManager::getConnectionStatus() const
 {
     if (!isConnected())
         return "Disconnected";
-    
+
     return "Connected to: " + getConnectedDeviceName();
 }
 
@@ -83,7 +83,7 @@ void AirPlayManager::pushAudioData(const juce::AudioBuffer<float>& audioBuffer, 
     if (!isConnected())
         return;
     
-    buffer->pushAudioData(audioBuffer, numSamples);
+    buffer->write(audioBuffer, numSamples);
 }
 
 juce::String AirPlayManager::getLastError() const
@@ -91,7 +91,7 @@ juce::String AirPlayManager::getLastError() const
     return lastError;
 }
 
-void AirPlayManager::setAutoReconnect(bool enable)
+void AirPlayManager::setAutoReconnect(bool /*enable*/)
 {
     // Auto-reconnect handled by macOS framework
 }
@@ -118,10 +118,12 @@ void AirPlayManager::processAudioStream()
     if (!isConnected() || !airplayImpl)
         return;
     
-    auto audioData = buffer->popAudioData();
-    if (audioData.getNumSamples() > 0)
+    juce::AudioBuffer<float> audioBuffer(2, currentSamplesPerBlock);
+    int samplesRead = buffer->read(audioBuffer, currentSamplesPerBlock);
+    
+    if (samplesRead > 0)
     {
-        if (!airplayImpl->streamAudio(audioData, audioData.getNumSamples()))
+        if (!airplayImpl->streamAudio(audioBuffer, samplesRead))
         {
             notifyError("Failed to stream audio");
             hasError = true;
