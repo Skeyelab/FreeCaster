@@ -1,5 +1,4 @@
 #include "DeviceDiscovery.h"
-#include "DeviceDiscoveryPlatform.h"
 
 #if JUCE_MAC
 
@@ -67,6 +66,7 @@
     NSString* hostname = [service hostName];
     NSInteger port = [service port];
     NSString* name = [service name];
+    NSDictionary<NSString*,NSData*>* txt = [NSNetService dictionaryFromTXTRecordData:[service TXTRecordData]];
 
     if (hostname && owner)
     {
@@ -78,6 +78,19 @@
             hostAddress = hostAddress.dropLastCharacters(1);
 
         AirPlayDevice device(deviceName, hostAddress, (int)port);
+
+        // Extract RAOP TXT record public key ("pk") if present
+        NSData* pkData = [txt objectForKey:@"pk"];
+        if (pkData && [pkData length] > 0)
+        {
+            juce::String pk = juce::String::fromUTF8((const char*)[pkData bytes], (int)[pkData length]);
+            device.setServerPublicKey(pk.trim());
+            NSLog(@"RaopClient: Found server public key in TXT record: %s", pk.trim().toRawUTF8());
+        }
+        else
+        {
+            NSLog(@"RaopClient: No 'pk' TXT record found for device: %s", [name UTF8String]);
+        }
         owner->addDiscoveredDevice(device);
     }
 }
@@ -98,37 +111,53 @@
 @end
 
 // C++ bridge implementation
-DeviceDiscovery::PlatformImpl::PlatformImpl(DeviceDiscovery* owner)
+void DeviceDiscovery::createPlatformImpl()
 {
     @autoreleasepool
     {
-        browser = [[AirPlayServiceBrowser alloc] initWithOwner:owner];
+        platformImpl = (__bridge_retained void*)[[AirPlayServiceBrowser alloc] initWithOwner:this];
     }
 }
 
-DeviceDiscovery::PlatformImpl::~PlatformImpl()
+void DeviceDiscovery::destroyPlatformImpl()
 {
     @autoreleasepool
     {
-        AirPlayServiceBrowser* b = (__bridge AirPlayServiceBrowser*)browser;
-        [b stop];
-        [b release];
+        if (platformImpl)
+        {
+            AirPlayServiceBrowser* browser = (__bridge_transfer AirPlayServiceBrowser*)platformImpl;
+            [browser stop];
+            [browser release];
+            platformImpl = nullptr;
+        }
     }
 }
 
-void DeviceDiscovery::PlatformImpl::start()
+void DeviceDiscovery::startDiscovery()
 {
-    @autoreleasepool
+    const juce::ScopedLock sl(deviceLock);
+    if (!isDiscovering && platformImpl)
     {
-        [(__bridge AirPlayServiceBrowser*)browser start];
+        isDiscovering = true;
+        @autoreleasepool
+        {
+            AirPlayServiceBrowser* browser = (__bridge AirPlayServiceBrowser*)platformImpl;
+            [browser start];
+        }
     }
 }
 
-void DeviceDiscovery::PlatformImpl::stop()
+void DeviceDiscovery::stopDiscovery()
 {
-    @autoreleasepool
+    const juce::ScopedLock sl(deviceLock);
+    if (isDiscovering && platformImpl)
     {
-        [(__bridge AirPlayServiceBrowser*)browser stop];
+        isDiscovering = false;
+        @autoreleasepool
+        {
+            AirPlayServiceBrowser* browser = (__bridge AirPlayServiceBrowser*)platformImpl;
+            [browser stop];
+        }
     }
 }
 

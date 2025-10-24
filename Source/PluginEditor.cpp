@@ -2,7 +2,7 @@
 #include "PluginEditor.h"
 
 AirPlayPluginEditor::AirPlayPluginEditor(AirPlayPluginProcessor& p)
-    : AudioProcessorEditor(&p), audioProcessor(p)
+    : AudioProcessorEditor(p), audioProcessor(p)
 {
     // Set a reasonable size that works for both standalone and plugin contexts
     setSize(600, 500);
@@ -77,7 +77,15 @@ AirPlayPluginEditor::AirPlayPluginEditor(AirPlayPluginProcessor& p)
         showStatus(status);
     };
 
-    audioProcessor.getDeviceDiscovery().addListener(this);
+    // Set up device discovery callbacks
+    audioProcessor.getDeviceDiscovery().setDeviceFoundCallback([this](const AirPlayDevice& device) {
+        deviceFound(device);
+    });
+    audioProcessor.getDeviceDiscovery().setDeviceLostCallback([this](const AirPlayDevice& device) {
+        deviceLost(device);
+    });
+
+    audioProcessor.getDeviceDiscovery().startDiscovery();
     updateDeviceList();
 
     startTimer(16);  // ~60Hz for smooth meter updates
@@ -85,7 +93,14 @@ AirPlayPluginEditor::AirPlayPluginEditor(AirPlayPluginProcessor& p)
 
 AirPlayPluginEditor::~AirPlayPluginEditor()
 {
-    audioProcessor.getDeviceDiscovery().removeListener(this);
+    // Clear callbacks to prevent crashes during destruction
+    audioProcessor.getDeviceDiscovery().setDeviceFoundCallback(nullptr);
+    audioProcessor.getDeviceDiscovery().setDeviceLostCallback(nullptr);
+
+    // Clear AirPlayManager callbacks to prevent UI access during destruction
+    audioProcessor.getAirPlayManager().clearCallbacks();
+
+    stopTimer();
 }
 
 void AirPlayPluginEditor::paint(juce::Graphics& g)
@@ -146,8 +161,25 @@ void AirPlayPluginEditor::timerCallback()
     float inputLevel = (testLevel > 0.0f) ? testLevel : audioProcessor.getInputLevel();
     float outputLevel = (testLevel > 0.0f) ? testLevel : audioProcessor.getOutputLevel();
 
-    inputMeter.setLevel(inputLevel);
-    outputMeter.setLevel(outputLevel);
+    // Debug logging (remove in production)
+    // static int meterDebugCounter = 0;
+    // if (++meterDebugCounter % 60 == 0) // Log every 60 calls (~1 second at 60Hz)
+    // {
+    //     DBG("Meter levels - Input: " << inputLevel << ", Output: " << outputLevel);
+    // }
+
+    // Only show input meters when not connected (to show input signal)
+    // Only show output meters when connected (to show what's being sent to AirPlay)
+    if (audioProcessor.getAirPlayManager().isConnected())
+    {
+        inputMeter.setLevel(0.0f);  // Hide input meter when connected
+        outputMeter.setLevel(outputLevel);  // Show output meter when connected
+    }
+    else
+    {
+        inputMeter.setLevel(inputLevel);  // Show input meter when not connected
+        outputMeter.setLevel(0.0f);  // Hide output meter when not connected
+    }
 }
 
 void AirPlayPluginEditor::updateStatusDisplay()
@@ -200,12 +232,20 @@ void AirPlayPluginEditor::updateBufferHealth()
 
 void AirPlayPluginEditor::showError(const juce::String& error)
 {
+    // Safety check: only update UI if component is still valid
+    if (!isVisible())
+        return;
+
     errorLabel.setText("⚠ " + error, juce::dontSendNotification);
     juce::Logger::writeToLog("GUI Error: " + error);
 }
 
 void AirPlayPluginEditor::showStatus(const juce::String& status)
 {
+    // Safety check: only update UI if component is still valid
+    if (!isVisible())
+        return;
+
     statusLabel.setText(status, juce::dontSendNotification);
     if (status.contains("Connected"))
     {

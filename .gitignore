@@ -197,3 +197,4 @@ compile_commands.json
 !*.c
 !*.sh
 !*.bat
+test_log.txt

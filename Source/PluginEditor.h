@@ -66,6 +66,7 @@ public:
         g.setColour(juce::Colour(0xFF505050));
         g.drawRoundedRectangle(bounds, 4.0f, 1.0f);
     }
+
     void setLevel(float newLevel)
     {
         // Convert to normalized 0-1 range (assuming input is in 0-1 linear amplitude)
@@ -91,6 +92,7 @@ public:
 
         repaint();
     }
+
     void reset()
     {
         currentLevel = 0.0f;
@@ -98,6 +100,7 @@ public:
         peakHoldCounter = 0;
         repaint();
     }
+
 private:
     float dbToY(float db, float height) const
     {
@@ -109,13 +112,13 @@ private:
     float currentLevel = 0.0f;
     float peakLevel = 0.0f;
     int peakHoldCounter = 0;
+
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(LevelMeter)
 };
 
 //==============================================================================
 class AirPlayPluginEditor : public juce::AudioProcessorEditor,
-                            public juce::Timer,
-                            public DeviceDiscovery::Listener
+                            public juce::Timer
 {
 public:
     AirPlayPluginEditor(AirPlayPluginProcessor&);
@@ -124,10 +127,11 @@ public:
     void paint(juce::Graphics&) override;
     void resized() override;
 
+    void deviceFound(const AirPlayDevice& device);
+    void deviceLost(const AirPlayDevice& device);
+
 private:
     void timerCallback() override;
-    void deviceFound(const AirPlayDevice& device) override;
-    void deviceLost(const AirPlayDevice& device) override;
 
     void updateDeviceList();
     void connectButtonClicked();

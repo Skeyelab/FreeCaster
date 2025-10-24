@@ -7,193 +7,87 @@ on:
 
 jobs:
   build-and-release:
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [macOS, Windows, ubuntu-24.04]
-        include:
-          - os: macOS
-            artifact-name: macos-builds
-            build-path: |
-              build/FreeCaster_artefacts/AU/FreeCaster.component
-              build/FreeCaster_artefacts/VST3/FreeCaster.vst3
-              build/FreeCaster_artefacts/Standalone/FreeCaster.app
-          - os: Windows
-            artifact-name: windows-builds
-            build-path: |
-              build/FreeCaster_artefacts/VST3/FreeCaster.vst3/
-              build/FreeCaster_artefacts/Standalone/FreeCaster.exe
-          - os: ubuntu-24.04
-            artifact-name: linux-builds
-            build-path: |
-              build/FreeCaster_artefacts/VST3/FreeCaster.vst3
-              build/FreeCaster_artefacts/Standalone/FreeCaster
-
+    runs-on: macos-latest
+    env:
+      CODE_SIGN_IDENTITY: ${{ secrets.CODE_SIGN_IDENTITY }}
+      DEVELOPMENT_TEAM: ${{ secrets.DEVELOPMENT_TEAM }}
+      APPLE_ID: ${{ secrets.APPLE_ID }}
+      NOTARIZATION_PASSWORD: ${{ secrets.NOTARIZATION_PASSWORD }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # FreeCaster uses CMake instead of Projucer
-
-      - name: Cache Linux dependencies
-        if: matrix.os == 'ubuntu-24.04'
+      - name: Cache CMake build
         uses: actions/cache@v4
         with:
-          path: /var/cache/apt/archives
-          key: ${{ runner.os }}-dependencies-${{ hashFiles('**/install-linux-deps.sh') }}
+          path: |
+            build
+            ~/Library/Caches/ccache
+          key: macos-cmake-${{ runner.arch }}-${{ hashFiles('CMakeLists.txt', 'Source/**') }}
           restore-keys: |
-            ${{ runner.os }}-dependencies-
-
-      - name: Install Linux dependencies
-        if: matrix.os == 'ubuntu-24.04'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            build-essential \
-            cmake \
-            git \
-            pkg-config \
-            libasound2-dev \
-            libjack-jackd2-dev \
-            libfreetype6-dev \
-            libgl1-mesa-dev \
-            libcurl4-openssl-dev \
-            libx11-dev \
-            libxinerama-dev \
-            libxext-dev \
-            libxrandr-dev \
-            libxcursor-dev \
-            libxcomposite-dev \
-            libgtk-3-dev
-
-
+            macos-cmake-${{ runner.arch }}-
+            macos-cmake-
 
       - name: Build macOS Plugin
-        if: matrix.os == 'macOS'
         run: |
-          echo "Building FreeCaster plugin..."
-
-          # Configure with CMake
-          cmake -B build -DCMAKE_BUILD_TYPE=Release
-
-          # Build the project
-          cmake --build build --config Release
-
-          if [ $? -ne 0 ]; then
-            echo "Build failed"
-            exit 1
-          fi
-
-          echo "Build completed successfully"
+          echo "🔨 Building FreeCaster for macOS release..."
+          chmod +x build.sh
+          ./build.sh Release
 
       - name: Code Sign macOS Plugin
-        if: matrix.os == 'macOS'
         env:
           CODE_SIGN_IDENTITY: ${{ secrets.CODE_SIGN_IDENTITY }}
           DEVELOPMENT_TEAM: ${{ secrets.DEVELOPMENT_TEAM }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          NOTARIZATION_PASSWORD: ${{ secrets.NOTARIZATION_PASSWORD }}
         run: |
-          echo "🔐 Checking code signing configuration..."
+          echo "🔐 Code signing plugins..."
 
-          # Function to sign a bundle with proper entitlements
           sign_bundle() {
               local bundle_path="$1"
               local bundle_name=$(basename "$bundle_path")
 
               if [ -z "$CODE_SIGN_IDENTITY" ]; then
-                  echo "  ⚠️  Skipping code signing for $bundle_name (no signing identity set)"
+                  echo "  ⚠️  Skipping code signing for $bundle_name"
                   return 0
               fi
 
               echo "  🔏 Code signing $bundle_name..."
-
-              # Sign with entitlements and hardened runtime
               codesign --force --options runtime --entitlements entitlements.plist \
                   --sign "$CODE_SIGN_IDENTITY" --timestamp "$bundle_path"
 
               if [ $? -eq 0 ]; then
                   echo "  ✅ Successfully signed $bundle_name"
-
-                  # Verify the signature
-                  echo "  🔍 Verifying signature..."
                   codesign --verify --deep --strict "$bundle_path"
-                  if [ $? -eq 0 ]; then
-                      echo "  ✅ Signature verification passed"
-                  else
-                      echo "  ⚠️  Signature verification failed"
-                  fi
-              else
-                  echo "  ❌ Failed to sign $bundle_name"
-                  return 1
               fi
           }
 
-          # Look for signing identity (can be set via environment variable or detected)
-          if [ -z "$CODE_SIGN_IDENTITY" ]; then
-              # Try to detect Apple Developer certificates
-              AVAILABLE_IDENTITIES=$(security find-identity -v -p codesigning | grep "Developer ID Application" | head -1)
-              if [ ! -z "$AVAILABLE_IDENTITIES" ]; then
-                  # Extract the identity from the security output
-                  CODE_SIGN_IDENTITY=$(echo "$AVAILABLE_IDENTITIES" | sed -n 's/.*"\(.*\)"/\1/p')
-                  echo "  🔍 Auto-detected signing identity: $CODE_SIGN_IDENTITY"
-              else
-                  echo "  ⚠️  No Developer ID Application certificate found"
-                  echo "  ℹ️  Plugins will be built unsigned (may trigger security warnings)"
-              fi
-          else
-              echo "  ✅ Using specified signing identity: $CODE_SIGN_IDENTITY"
+          if [ -d "build/FreeCaster_artefacts/Release/AU/FreeCaster.component" ]; then
+              sign_bundle "build/FreeCaster_artefacts/Release/AU/FreeCaster.component"
           fi
 
-          # Check for entitlements file
-          if [ ! -f "entitlements.plist" ]; then
-              echo "  ⚠️  entitlements.plist not found - code signing may fail"
-          else
-              echo "  ✅ Found entitlements.plist"
+          if [ -d "build/FreeCaster_artefacts/Release/VST3/FreeCaster.vst3" ]; then
+              sign_bundle "build/FreeCaster_artefacts/Release/VST3/FreeCaster.vst3"
           fi
 
-          # Sign AU component
-          if [ -d "build/FreeCaster_artefacts/AU/FreeCaster.component" ]; then
-              echo "  - Signing AU component..."
-              sign_bundle "build/FreeCaster_artefacts/AU/FreeCaster.component"
-          fi
-
-          # Sign VST3 plugin
-          if [ -d "build/FreeCaster_artefacts/VST3/FreeCaster.vst3" ]; then
-              echo "  - Signing VST3 plugin..."
-              sign_bundle "build/FreeCaster_artefacts/VST3/FreeCaster.vst3"
-          fi
-
-          # Sign standalone application
-          if [ -d "build/FreeCaster_artefacts/Standalone/FreeCaster.app" ]; then
-              echo "  - Signing standalone application..."
-              sign_bundle "build/FreeCaster_artefacts/Standalone/FreeCaster.app"
+          if [ -d "build/FreeCaster_artefacts/Release/Standalone/FreeCaster.app" ]; then
+              sign_bundle "build/FreeCaster_artefacts/Release/Standalone/FreeCaster.app"
           fi
 
       - name: Notarize macOS Plugin
-        if: matrix.os == 'macOS' && env.CODE_SIGN_IDENTITY != '' && env.APPLE_ID != '' && env.NOTARIZATION_PASSWORD != ''
+        if: env.APPLE_ID != '' && env.NOTARIZATION_PASSWORD != '' && env.DEVELOPMENT_TEAM != ''
         run: |
-          echo "🍎 Starting notarization process..."
+          echo "🍎 Notarizing plugins..."
 
-          # Function to notarize a bundle
           notarize_bundle() {
               local bundle_path="$1"
               local bundle_name=$(basename "$bundle_path")
 
-              echo "  📦 Creating zip for notarization: $bundle_name"
-
-              # Create a temporary directory for the zip
+              echo "  📦 Notarizing $bundle_name..."
               local temp_dir=$(mktemp -d)
               local zip_path="$temp_dir/${bundle_name}.zip"
 
-              # Create zip file
               cd "$(dirname "$bundle_path")"
               zip -r "$zip_path" "$(basename "$bundle_path")"
 
-              echo "  🚀 Submitting $bundle_name for notarization..."
-
-                            # Submit for notarization
-              echo "  📤 Submitting to Apple's notary service..."
               local notary_output=$(xcrun notarytool submit "$zip_path" \
                   --apple-id "$APPLE_ID" \
                   --password "$NOTARIZATION_PASSWORD" \
@@ -201,499 +95,160 @@ jobs:
                   --wait 2>&1)
               local notary_exit_code=$?
 
-              echo "  📋 Notary output:"
-              echo "$notary_output"
-
-                                                                                                                                                                                                                                                                       if [ $notary_exit_code -eq 0 ]; then
-                     # Check if notarization was successful by looking for "status: Accepted"
-                     local notarization_success=$(echo "$notary_output" | grep -c "status: Accepted" || echo "0")
-                     # Extract submission ID more robustly - look for the final submission ID
-                     local submission_id=$(echo "$notary_output" | grep "id:" | tail -1 | sed 's/.*id: \([^[:space:]]*\).*/\1/')
-                     echo "  🔍 Extracted submission ID: '$submission_id'"
-                     echo "  🔍 Notarization success check: $notarization_success"
-                     if [ "$notarization_success" -gt 0 ] && [ ! -z "$submission_id" ]; then
-                  echo "  ✅ Notarization completed for $bundle_name (ID: $submission_id)"
-
-                  # Staple the notarization ticket
-                  echo "  📎 Stapling notarization ticket to $bundle_name..."
-                  xcrun stapler staple "$bundle_path"
-
-                  if [ $? -eq 0 ]; then
-                      echo "  ✅ Successfully stapled notarization to $bundle_name"
-
-                      # Verify notarization
-                      echo "  🔍 Verifying notarization..."
-                      xcrun stapler validate "$bundle_path"
-                      if [ $? -eq 0 ]; then
-                          echo "  ✅ Notarization verification passed for $bundle_name"
-                      else
-                          echo "  ⚠️  Notarization verification failed for $bundle_name"
-                      fi
+              if [ $notary_exit_code -eq 0 ]; then
+                  local notarization_success=$(echo "$notary_output" | grep -c "status: Accepted" || echo "0")
+                  if [ "$notarization_success" -gt 0 ]; then
+                      echo "  ✅ Notarization successful"
+                      cd "$(pwd)"
+                      xcrun stapler staple "$bundle_path"
                   else
-                      echo "  ❌ Failed to staple notarization to $bundle_name"
+                      echo "  ❌ Notarization failed"
+                      return 1
                   fi
-              else
-                  echo "  ❌ Notarization failed for $bundle_name"
-                  return 1
               fi
 
-              # Clean up
               rm -rf "$temp_dir"
           }
 
-          # Check if we have the required environment variables
-          if [ -z "$APPLE_ID" ] || [ -z "$NOTARIZATION_PASSWORD" ] || [ -z "$DEVELOPMENT_TEAM" ]; then
-              echo "  ⚠️  Skipping notarization - missing required environment variables"
-              echo "  ℹ️  Set APPLE_ID, NOTARIZATION_PASSWORD, and DEVELOPMENT_TEAM to enable notarization"
-              return 0
+          if [ -d "build/FreeCaster_artefacts/Release/AU/FreeCaster.component" ]; then
+              notarize_bundle "build/FreeCaster_artefacts/Release/AU/FreeCaster.component"
           fi
 
-          echo "  ✅ Notarization credentials available"
-
-          # Notarize AU component
-          if [ -d "build/FreeCaster_artefacts/AU/FreeCaster.component" ]; then
-              echo "  - Notarizing AU component..."
-              notarize_bundle "build/FreeCaster_artefacts/AU/FreeCaster.component"
+          if [ -d "build/FreeCaster_artefacts/Release/VST3/FreeCaster.vst3" ]; then
+              notarize_bundle "build/FreeCaster_artefacts/Release/VST3/FreeCaster.vst3"
           fi
 
-          # Notarize VST3 plugin
-          if [ -d "build/FreeCaster_artefacts/VST3/FreeCaster.vst3" ]; then
-              echo "  - Notarizing VST3 plugin..."
-              notarize_bundle "build/FreeCaster_artefacts/VST3/FreeCaster.vst3"
+          if [ -d "build/FreeCaster_artefacts/Release/Standalone/FreeCaster.app" ]; then
+              notarize_bundle "build/FreeCaster_artefacts/Release/Standalone/FreeCaster.app"
           fi
 
-          # Notarize standalone application
-          if [ -d "build/FreeCaster_artefacts/Standalone/FreeCaster.app" ]; then
-              echo "  - Notarizing standalone application..."
-              notarize_bundle "build/FreeCaster_artefacts/Standalone/FreeCaster.app"
-          fi
-
-      - name: Cleanup macOS build artifacts
-        if: matrix.os == 'macOS' && always()
+      - name: Create distribution
         run: |
-          # Clean up temporary files
-          find . -name "*.tmp" -o -name "*.temp" -o -name "*~" -type f -delete 2>/dev/null || true
-          find . -name ".DS_Store" -type f -delete 2>/dev/null || true
+          echo "📦 Creating distribution..."
+          mkdir -p dist
+          if [ -d "build/FreeCaster_artefacts/Release/AU/FreeCaster.component" ]; then
+            cp -R build/FreeCaster_artefacts/Release/AU/FreeCaster.component dist/
+          fi
+          if [ -d "build/FreeCaster_artefacts/Release/VST3/FreeCaster.vst3" ]; then
+            cp -R build/FreeCaster_artefacts/Release/VST3/FreeCaster.vst3 dist/
+          fi
+          if [ -d "build/FreeCaster_artefacts/Release/Standalone/FreeCaster.app" ]; then
+            cp -R build/FreeCaster_artefacts/Release/Standalone/FreeCaster.app dist/
+          fi
+
+      - name: Create release packages
+        run: |
+          mkdir -p release-packages
+          echo "📦 Packaging for release..."
+
+          # Copy documentation
+          cp README.md release-packages/ || echo "README not found"
+          cp USER_GUIDE.md release-packages/ || echo "USER_GUIDE not found"
+
+          # Package AU
+          if [ -d "dist/FreeCaster.component" ]; then
+            cd dist
+            zip -r ../release-packages/FreeCaster-AU.zip FreeCaster.component
+            cd ..
+          fi
+
+          # Package VST3
+          if [ -d "dist/FreeCaster.vst3" ]; then
+            cd dist
+            zip -r ../release-packages/FreeCaster-VST3.zip FreeCaster.vst3
+            cd ..
+          fi
+
+          # Package Standalone
+          if [ -d "dist/FreeCaster.app" ]; then
+            cd dist
+            zip -r ../release-packages/FreeCaster-Standalone.zip FreeCaster.app
+            cd ..
+          fi
+
+          echo "✅ Release packages created:"
+          ls -lh release-packages/
+
+      - name: Cleanup build artifacts
+        if: always()
+        run: |
+          find . -name "*.tmp" -o -name ".DS_Store" -type f -delete 2>/dev/null || true
           find . -name "*.build" -type d -exec rm -rf {} + 2>/dev/null || true
-          find . -name "DerivedData" -type d -exec rm -rf {} + 2>/dev/null || true
-
-      - name: Build Windows Plugin
-        if: matrix.os == 'Windows'
-        shell: cmd
-        run: |
-          echo Building FreeCaster plugin...
-
-          REM Configure with CMake
-          cmake -B build -DCMAKE_BUILD_TYPE=Release
-
-          REM Build the project
-          cmake --build build --config Release
-
-          if %ERRORLEVEL% neq 0 (
-            echo Build failed
-            exit /b 1
-          )
-
-          echo Build completed successfully
-
-      - name: Cleanup Windows build artifacts
-        if: matrix.os == 'Windows' && always()
-        shell: powershell
-        run: |
-          # Clean up temporary files
-          Get-ChildItem -Path . -Recurse -Include @("*.tmp", "*.temp", "*~", "Thumbs.db", "ehthumbs.db") -Force | Remove-Item -Force -ErrorAction SilentlyContinue
-
-          # Clean up Visual Studio temporary files
-          Get-ChildItem -Path . -Recurse -Name "*.build" -Directory | ForEach-Object { Remove-Item -Path $_ -Recurse -Force -ErrorAction SilentlyContinue }
-          Get-ChildItem -Path . -Recurse -Name ".vs" -Directory | ForEach-Object { Remove-Item -Path $_ -Recurse -Force -ErrorAction SilentlyContinue }
-
-      - name: Build Linux Plugin
-        if: matrix.os == 'ubuntu-24.04'
-        run: |
-          echo "Building FreeCaster VST Plugin for Linux..."
-          chmod +x build.sh
-          ./build.sh
-
-
-
-      - name: Show build status (macOS)
-        if: matrix.os == 'macOS'
-        run: |
-          echo "🔨 Built from source using CMake"
-          echo "📦 macOS artifacts:"
-          find build/FreeCaster_artefacts/ -name "*.vst3" -o -name "*.app" 2>/dev/null || echo "  (checking built artifacts...)"
-
-      - name: Show build status (Windows)
-        if: matrix.os == 'Windows'
-        shell: powershell
-        run: |
-          Write-Host "🔨 Built from source using CMake"
-          Write-Host "📦 Windows artifacts:"
-
-          $artifacts = Get-ChildItem -Path "build\FreeCaster_artefacts\" -Recurse -Include "*.vst3", "*.exe" -ErrorAction SilentlyContinue
-          if ($artifacts) {
-            $artifacts | ForEach-Object { Write-Host "  $($_.Name)" }
-          } else {
-            Write-Host "  (checking built artifacts...)"
-          }
-
-      - name: Show build status (Linux)
-        if: matrix.os == 'ubuntu-24.04'
-        run: |
-          echo "🔨 Built from source using CMake"
-          echo "📦 Linux artifacts:"
-          find build/FreeCaster_artefacts/ -name "*.vst3" -o -name "FreeCaster" 2>/dev/null || echo "  (checking built artifacts...)"
-
-      # Verify that we have valid build artifacts
-      - name: Validate build artifacts (macOS)
-        if: matrix.os == 'macOS'
-        run: |
-          echo "🔍 Validating build artifacts..."
-          artifacts_found=false
-
-          # Check for macOS artifacts
-          if [ -d "build/FreeCaster_artefacts" ]; then
-            echo "✅ macOS build directory exists"
-
-            # Look for expected plugin formats
-            if find build/FreeCaster_artefacts -name "*.vst3" | grep -q .; then
-              echo "✅ VST3 plugin found"
-              artifacts_found=true
-            fi
-            if find build/FreeCaster_artefacts -name "*.app" | grep -q .; then
-              echo "✅ Standalone app found"
-              artifacts_found=true
-            fi
-          fi
-
-          if [ "$artifacts_found" = "false" ]; then
-            echo "❌ No valid build artifacts found!"
-            echo "Build directory contents:"
-            ls -la build/FreeCaster_artefacts/ 2>/dev/null || echo "Directory not found"
-            exit 1
-          else
-            echo "✅ Build artifacts validation passed"
-          fi
-
-      - name: Validate build artifacts (Windows)
-        if: matrix.os == 'Windows'
-        shell: powershell
-        run: |
-          Write-Host "Validating build artifacts..."
-          $artifacts_found = $false
-
-          if (Test-Path "build\FreeCaster_artefacts") {
-            Write-Host "Windows build directory exists"
-
-            if (Test-Path "build\FreeCaster_artefacts\VST3\FreeCaster.vst3") {
-              Write-Host "VST3 plugin found"
-              $artifacts_found = $true
-            }
-
-            if (Test-Path "build\FreeCaster_artefacts\Standalone\FreeCaster.exe") {
-              Write-Host "Standalone executable found"
-              $artifacts_found = $true
-            }
-
-            if ($artifacts_found) {
-              Write-Host "Build artifacts validation passed"
-            } else {
-              Write-Host "No valid build artifacts found!"
-              Write-Host "Build directory contents:"
-              Get-ChildItem "build\FreeCaster_artefacts" -Recurse | Select-Object FullName
-              exit 1
-            }
-          } else {
-            Write-Host "No valid build artifacts found!"
-            Write-Host "Directory not found"
-            exit 1
-          }
-
-      - name: Validate build artifacts (Linux)
-        if: matrix.os == 'ubuntu-24.04'
-        run: |
-          echo "🔍 Validating build artifacts..."
-          artifacts_found=false
-
-          # Check for Linux artifacts
-          if [ -d "build/FreeCaster_artefacts" ]; then
-            echo "✅ Linux build directory exists"
-
-            # Look for expected plugin formats
-            if find build/FreeCaster_artefacts -name "*.vst3" | grep -q .; then
-              echo "✅ VST3 plugin found"
-              artifacts_found=true
-            fi
-
-            if [ -f "build/FreeCaster_artefacts/Standalone/FreeCaster" ]; then
-              echo "✅ Standalone executable found"
-              artifacts_found=true
-            fi
-          fi
-
-          if [ "$artifacts_found" = false ]; then
-            echo "❌ No valid build artifacts found!"
-            echo "Build directory contents:"
-            if [ -d "build/FreeCaster_artefacts" ]; then
-              find build/FreeCaster_artefacts -type f | head -10
-            else
-              echo "Directory not found"
-            fi
-            exit 1
-          else
-            echo "✅ Build artifacts validation passed"
-          fi
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.artifact-name }}
-          path: ${{ matrix.build-path }}
+          name: macos-release
+          path: dist/
 
-  create-release:
-    needs: build-and-release
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Download all artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: artifacts
-
-      - name: Create Release
+      - name: Create GitHub Release
         id: create_release
         uses: actions/create-release@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tag_name: ${{ github.ref }}
-          release_name: Release ${{ github.ref_name }}
+          release_name: FreeCaster ${{ github.ref_name }}
           body: |
             ## FreeCaster ${{ github.ref_name }}
 
-            A VST3 audio plugin that streams your DAW's audio output to AirPlay devices (Apple TV, HomePod, AirPort Express, etc.) with high-quality audio streaming.
+            A VST3/AU audio plugin for macOS that streams your DAW's audio to AirPlay devices with high-quality, low-latency streaming.
 
             ### Downloads
-            - **macOS**: AU (Audio Unit), VST3, and Standalone versions
-            - **Windows**: VST3 and Standalone versions
-            - **Linux**: VST3 and Standalone versions
+            - **AU Plugin** - Audio Units plugin for macOS
+            - **VST3 Plugin** - VST3 plugin for macOS
+            - **Standalone** - Standalone application
 
-            ### Installation Instructions
-            Each download package includes comprehensive installation instructions:
-            - `README.md` - Project overview and build instructions
-            - `USER_GUIDE.md` - User guide for FreeCaster
+            ### Installation
+            1. **AU Plugin**: Copy FreeCaster.component to `~/Library/Audio/Plug-Ins/Components/`
+            2. **VST3 Plugin**: Copy FreeCaster.vst3 to `~/Library/Audio/Plug-Ins/VST3/`
+            3. **Standalone**: Run FreeCaster.app directly
 
-            **Quick Install**:
-            - **macOS**: Copy plugins to `~/Library/Audio/Plug-Ins/Components/` (AU) or `~/Library/Audio/Plug-Ins/VST3/` (VST3)
-            - **Windows**: Copy plugins to `C:\Program Files\Common Files\VST3\`
-            - **Linux**: Copy plugins to `~/.vst3/` (VST3)
+            ### Requirements
+            - macOS 10.13 or later
+            - Intel or Apple Silicon processor
 
-            ### What's New
-            See the [commit history](https://github.com/${{ github.repository }}/commits/${{ github.ref }}) for detailed changes.
+            ### Features
+            - Real-time AirPlay streaming
+            - Automatic device discovery
+            - Low-latency audio transmission
+            - Support for multiple AirPlay devices
+            - Native macOS integration using AVFoundation
+
+            ### Changelog
+            See [commit history](https://github.com/${{ github.repository }}/commits/${{ github.ref }}) for detailed changes.
           draft: false
           prerelease: false
 
-      - name: List available artifacts
-        run: |
-          echo "=== macOS Artifacts ==="
-          find ./artifacts/macos-builds -type f -name "*.component" -o -name "*.vst3" -o -name "*.app" | head -20
-          echo "=== Windows Artifacts ==="
-          find ./artifacts/windows-builds -type f -name "*.vst3" -o -name "*.exe" | head -20
-          echo "=== Linux Artifacts ==="
-          find ./artifacts/linux-builds -type f -name "*.vst3" -o -name "FreeCaster" | head -20
-          echo "=== All Artifacts Structure ==="
-          find ./artifacts -type f | head -30
-          echo "=== Full Directory Listing ==="
-          ls -la ./artifacts/
-          ls -la ./artifacts/macos-builds/ || echo "macos-builds not found"
-          ls -la ./artifacts/windows-builds/ || echo "windows-builds not found"
-          ls -la ./artifacts/linux-builds/ || echo "linux-builds not found"
-          echo "=== File Sizes ==="
-          du -sh ./artifacts/macos-builds/ || echo "macos-builds not found"
-          du -sh ./artifacts/windows-builds/ || echo "windows-builds not found"
-          du -sh ./artifacts/linux-builds/ || echo "linux-builds not found"
-
-      - name: Create release packages
-        run: |
-          mkdir -p release-packages
-
-          # Copy documentation files for inclusion in releases
-          echo "Preparing documentation files..."
-          cp README.md release-packages/ || echo "README.md not found"
-          cp USER_GUIDE.md release-packages/ || echo "USER_GUIDE.md not found"
-
-          # macOS packages
-          if [ -d "./artifacts/macos-builds" ]; then
-            echo "Creating macOS packages..."
-
-            # AU
-            if [ -d "./artifacts/macos-builds/FreeCaster.component" ]; then
-              cd ./artifacts/macos-builds
-              zip -r ../../release-packages/FreeCaster-macOS-au.zip FreeCaster.component
-              cd ../..
-              # Add documentation to the package
-              cd release-packages/
-              zip FreeCaster-macOS-au.zip README.md USER_GUIDE.md || echo "Documentation not found"
-              cd ../
-            fi
-
-            # VST3
-            if [ -d "./artifacts/macos-builds/FreeCaster.vst3" ]; then
-              cd ./artifacts/macos-builds
-              zip -r ../../release-packages/FreeCaster-macOS-vst3.zip FreeCaster.vst3
-              cd ../..
-              # Add documentation to the package
-              cd release-packages/
-              zip FreeCaster-macOS-vst3.zip README.md USER_GUIDE.md || echo "Documentation not found"
-              cd ../
-            fi
-
-            # Standalone
-            if [ -d "./artifacts/macos-builds/FreeCaster.app" ]; then
-              cd ./artifacts/macos-builds
-              zip -r ../../release-packages/FreeCaster-macOS-standalone.zip FreeCaster.app
-              cd ../..
-              # Add documentation to the package
-              cd release-packages/
-              zip FreeCaster-macOS-standalone.zip README.md USER_GUIDE.md || echo "Documentation not found"
-              cd ../
-            fi
-          fi
-
-          # Windows packages
-          if [ -d "./artifacts/windows-builds" ]; then
-            echo "Creating Windows packages..."
-
-            # VST3
-            if [ -d "./artifacts/windows-builds/FreeCaster.vst3" ]; then
-              cd ./artifacts/windows-builds
-              zip -r ../../release-packages/FreeCaster-Windows-vst3.zip FreeCaster.vst3
-              cd ../..
-              # Add documentation to the package
-              cd release-packages/
-              zip FreeCaster-Windows-vst3.zip README.md USER_GUIDE.md || echo "Documentation not found"
-              cd ../
-            fi
-
-            # Standalone
-            if [ -f "./artifacts/windows-builds/FreeCaster.exe" ]; then
-              cd ./artifacts/windows-builds
-              zip ../../release-packages/FreeCaster-Windows-standalone.zip FreeCaster.exe
-              cd ../..
-              # Add documentation to the package
-              cd release-packages/
-              zip FreeCaster-Windows-standalone.zip README.md USER_GUIDE.md || echo "Documentation not found"
-              cd ../
-            fi
-          fi
-
-          # Linux packages
-          if [ -d "./artifacts/linux-builds" ]; then
-            echo "Creating Linux packages..."
-
-            # VST3
-            if [ -d "./artifacts/linux-builds/FreeCaster.vst3" ]; then
-              cd ./artifacts/linux-builds
-              zip -r ../../release-packages/FreeCaster-Linux-vst3.zip FreeCaster.vst3
-              cd ../..
-              # Add documentation to the package
-              cd release-packages/
-              zip FreeCaster-Linux-vst3.zip README.md USER_GUIDE.md || echo "Documentation not found"
-              cd ../
-            fi
-
-            # Standalone
-            if [ -f "./artifacts/linux-builds/FreeCaster" ]; then
-              cd ./artifacts/linux-builds
-              zip ../../release-packages/FreeCaster-Linux-standalone.zip FreeCaster
-              cd ../..
-              # Add documentation to the package
-              cd release-packages/
-              zip FreeCaster-Linux-standalone.zip README.md USER_GUIDE.md || echo "Documentation not found"
-              cd ../
-            fi
-          fi
-
-          echo "Created packages:"
-          ls -la release-packages/
-
-      - name: Upload macOS AU
+      - name: Upload AU Plugin
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./release-packages/FreeCaster-macOS-au.zip
-          asset_name: FreeCaster-macOS-au.zip
+          asset_path: ./release-packages/FreeCaster-AU.zip
+          asset_name: FreeCaster-${{ github.ref_name }}-AU.zip
           asset_content_type: application/zip
         continue-on-error: true
 
-      - name: Upload macOS VST3
+      - name: Upload VST3 Plugin
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./release-packages/FreeCaster-macOS-vst3.zip
-          asset_name: FreeCaster-macOS-vst3.zip
+          asset_path: ./release-packages/FreeCaster-VST3.zip
+          asset_name: FreeCaster-${{ github.ref_name }}-VST3.zip
           asset_content_type: application/zip
         continue-on-error: true
 
-      - name: Upload macOS Standalone
+      - name: Upload Standalone App
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./release-packages/FreeCaster-macOS-standalone.zip
-          asset_name: FreeCaster-macOS-standalone.zip
-          asset_content_type: application/zip
-        continue-on-error: true
-
-      - name: Upload Windows VST3
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./release-packages/FreeCaster-Windows-vst3.zip
-          asset_name: FreeCaster-Windows-vst3.zip
-          asset_content_type: application/zip
-        continue-on-error: true
-
-      - name: Upload Windows Standalone
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./release-packages/FreeCaster-Windows-standalone.zip
-          asset_name: FreeCaster-Windows-standalone.zip
-          asset_content_type: application/zip
-        continue-on-error: true
-
-      - name: Upload Linux VST3
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./release-packages/FreeCaster-Linux-vst3.zip
-          asset_name: FreeCaster-Linux-vst3.zip
-          asset_content_type: application/zip
-        continue-on-error: true
-
-      - name: Upload Linux Standalone
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./release-packages/FreeCaster-Linux-standalone.zip
-          asset_name: FreeCaster-Linux-standalone.zip
+          asset_path: ./release-packages/FreeCaster-Standalone.zip
+          asset_name: FreeCaster-${{ github.ref_name }}-Standalone.zip
           asset_content_type: application/zip
         continue-on-error: true

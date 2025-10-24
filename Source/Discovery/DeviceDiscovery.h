@@ -2,38 +2,46 @@
 #include <JuceHeader.h>
 #include "AirPlayDevice.h"
 
-class DeviceDiscovery : public juce::Thread
+// Forward declaration
+class AirPlayPluginEditor;
+
+class DeviceDiscovery
 {
 public:
-    class Listener
-    {
-    public:
-        virtual ~Listener() = default;
-        virtual void deviceFound(const AirPlayDevice& device) = 0;
-        virtual void deviceLost(const AirPlayDevice& device) = 0;
-    };
-    
+    // Callback function type for device discovery events
+    using DeviceFoundCallback = std::function<void(const AirPlayDevice&)>;
+    using DeviceLostCallback = std::function<void(const AirPlayDevice&)>;
+
     DeviceDiscovery();
-    ~DeviceDiscovery() override;
-    
+    ~DeviceDiscovery();
+
     void startDiscovery();
     void stopDiscovery();
-    void addListener(Listener* listener);
-    void removeListener(Listener* listener);
+
+    void addListener(AirPlayPluginEditor* listener);
+    void removeListener(AirPlayPluginEditor* listener);
+
+    // Alternative callback-based approach
+    void setDeviceFoundCallback(DeviceFoundCallback callback);
+    void setDeviceLostCallback(DeviceLostCallback callback);
+
     juce::Array<AirPlayDevice> getDiscoveredDevices() const;
-    
     void addDiscoveredDevice(const AirPlayDevice& device);
-    
+
 private:
-    void run() override;
-    void performDiscovery();
-    
-    juce::ListenerList<Listener> listeners;
-    juce::Array<AirPlayDevice> devices;
+    juce::Array<AirPlayPluginEditor*> listeners;
+    juce::Array<AirPlayDevice> discoveredDevices;
     juce::CriticalSection deviceLock;
-    
-    struct PlatformImpl;
-    std::unique_ptr<PlatformImpl> platformImpl;
-    
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(DeviceDiscovery)
+
+    bool isDiscovering = false;
+
+    // Callback functions
+    DeviceFoundCallback deviceFoundCallback;
+    DeviceLostCallback deviceLostCallback;
+
+    // Platform-specific implementation
+    void* platformImpl = nullptr;
+
+    void createPlatformImpl();
+    void destroyPlatformImpl();
 };

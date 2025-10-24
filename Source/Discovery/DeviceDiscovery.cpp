@@ -1,91 +1,58 @@
 #include "DeviceDiscovery.h"
-#include "DeviceDiscoveryPlatform.h"
 
-DeviceDiscovery::DeviceDiscovery() : Thread("AirPlayDiscovery")
+DeviceDiscovery::DeviceDiscovery()
 {
-#if JUCE_MAC || JUCE_WINDOWS || JUCE_LINUX
-    platformImpl = std::make_unique<PlatformImpl>(this);
-#endif
+    createPlatformImpl();
 }
 
 DeviceDiscovery::~DeviceDiscovery()
 {
     stopDiscovery();
-    platformImpl.reset();
+    destroyPlatformImpl();
 }
 
-void DeviceDiscovery::startDiscovery()
-{
-#if JUCE_MAC || JUCE_WINDOWS || JUCE_LINUX
-    if (platformImpl)
-        platformImpl->start();
-#endif
+// startDiscovery and stopDiscovery are implemented in DeviceDiscoveryMac.mm
 
-    if (!isThreadRunning())
-        startThread();
+void DeviceDiscovery::addListener(AirPlayPluginEditor* listener)
+{
+    listeners.addIfNotAlreadyThere(listener);
 }
 
-void DeviceDiscovery::stopDiscovery()
+void DeviceDiscovery::removeListener(AirPlayPluginEditor* listener)
 {
-#if JUCE_MAC || JUCE_WINDOWS || JUCE_LINUX
-    if (platformImpl)
-        platformImpl->stop();
-#endif
-
-    signalThreadShouldExit();
-    notify();
-    stopThread(2000);
-}
-
-void DeviceDiscovery::addListener(Listener* listener)
-{
-    listeners.add(listener);
-}
-
-void DeviceDiscovery::removeListener(Listener* listener)
-{
-    listeners.remove(listener);
+    listeners.removeAllInstancesOf(listener);
 }
 
 juce::Array<AirPlayDevice> DeviceDiscovery::getDiscoveredDevices() const
 {
     const juce::ScopedLock sl(deviceLock);
-    return devices;
-}
-
-void DeviceDiscovery::run()
-{
-    while (!threadShouldExit())
-    {
-        performDiscovery();
-        wait(5000);
-    }
-}
-
-void DeviceDiscovery::performDiscovery()
-{
-    // Platform-specific mDNS discovery runs in PlatformImpl
-    // This thread just keeps running for future cross-platform polling if needed
+    return discoveredDevices;
 }
 
 void DeviceDiscovery::addDiscoveredDevice(const AirPlayDevice& device)
 {
-    const juce::ScopedLock sl(deviceLock);
-
-    // Check if device already exists
-    bool found = false;
-    for (const auto& existing : devices)
     {
-        if (existing.getDeviceName() == device.getDeviceName())
-        {
-            found = true;
-            break;
-        }
+        const juce::ScopedLock sl(deviceLock);
+        discoveredDevices.addIfNotAlreadyThere(device);
     }
 
-    if (!found)
+    // Notify via callback if set
+    if (deviceFoundCallback)
     {
-        devices.add(device);
-        listeners.call([&](Listener& l) { l.deviceFound(device); });
+        deviceFoundCallback(device);
     }
 }
+
+void DeviceDiscovery::setDeviceFoundCallback(DeviceFoundCallback callback)
+{
+    const juce::ScopedLock sl(deviceLock);
+    deviceFoundCallback = callback;
+}
+
+void DeviceDiscovery::setDeviceLostCallback(DeviceLostCallback callback)
+{
+    const juce::ScopedLock sl(deviceLock);
+    deviceLostCallback = callback;
+}
+
+// Platform-specific implementations are in DeviceDiscoveryMac.mm

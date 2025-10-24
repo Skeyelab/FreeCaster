@@ -1,20 +1,21 @@
 #pragma once
 
-#include "AirPlayManager.h"
+#include <JuceHeader.h>
+#include "../Discovery/AirPlayDevice.h"
 
 #if JUCE_MAC || JUCE_IOS
 
-class AirPlayMac : public AirPlayStreamer
+class AirPlayMac
 {
 public:
     AirPlayMac();
-    ~AirPlayMac() override;
+    ~AirPlayMac();
 
-    bool connect(const AirPlayDevice& device) override;
-    void disconnect() override;
-    bool isConnected() const override;
-    bool streamAudio(const juce::AudioBuffer<float>& buffer, int numSamples) override;
-    juce::String getLastError() const override;
+    bool connect(const AirPlayDevice& device);
+    void disconnect();
+    bool isConnected() const;
+    bool streamAudio(const juce::AudioBuffer<float>& buffer, int numSamples);
+    juce::String getLastError() const;
 
 private:
     struct Impl;
