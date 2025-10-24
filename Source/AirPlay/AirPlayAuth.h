@@ -87,6 +87,25 @@ public:
      */
     juce::String getLastError() const { return lastError; }
 
+    /**
+     * Encrypt AES session key with server's RSA public key using RSA-OAEP
+     * @param aesKey The AES session key to encrypt (16 bytes)
+     * @param serverPublicKeyData The server's RSA public key (raw bytes or PEM format)
+     * @param encryptedKey Output buffer for encrypted key
+     * @return true if encryption successful
+     */
+    bool encryptAesKeyWithRsaOaep(const juce::MemoryBlock& aesKey,
+                                   const juce::MemoryBlock& serverPublicKeyData,
+                                   juce::MemoryBlock& encryptedKey);
+
+    /**
+     * Generate random AES session key and IV
+     * @param aesKey Output buffer for AES key (16 bytes)
+     * @param aesIV Output buffer for AES IV (16 bytes)
+     * @return true if generation successful
+     */
+    bool generateAesSessionKey(juce::MemoryBlock& aesKey, juce::MemoryBlock& aesIV);
+
 private:
     // Forward declarations for implementation-specific types
     struct Impl;

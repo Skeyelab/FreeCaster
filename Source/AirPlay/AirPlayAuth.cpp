@@ -309,3 +309,168 @@ juce::MemoryBlock AirPlayAuth::base64Decode(const juce::String& encoded) const
 
     return decoded;
 }
+
+bool AirPlayAuth::generateAesSessionKey(juce::MemoryBlock& aesKey, juce::MemoryBlock& aesIV)
+{
+    // Generate random 16-byte AES-128 key
+    aesKey.setSize(16);
+    if (RAND_bytes(static_cast<unsigned char*>(aesKey.getData()), 16) != 1)
+    {
+        lastError = "Failed to generate AES session key";
+        return false;
+    }
+
+    // Generate random 16-byte IV
+    aesIV.setSize(16);
+    if (RAND_bytes(static_cast<unsigned char*>(aesIV.getData()), 16) != 1)
+    {
+        lastError = "Failed to generate AES IV";
+        return false;
+    }
+
+    return true;
+}
+
+bool AirPlayAuth::encryptAesKeyWithRsaOaep(const juce::MemoryBlock& aesKey,
+                                            const juce::MemoryBlock& serverPublicKeyData,
+                                            juce::MemoryBlock& encryptedKey)
+{
+    if (aesKey.getSize() != 16)
+    {
+        lastError = "AES key must be 16 bytes";
+        return false;
+    }
+
+    if (serverPublicKeyData.isEmpty())
+    {
+        lastError = "Server public key is empty";
+        return false;
+    }
+
+    // Try to parse the server public key
+    // AirPlay devices may provide the key in different formats:
+    // 1. Raw RSA public key bytes (modulus + exponent)
+    // 2. PEM format
+    // 3. DER format
+    
+    EVP_PKEY* serverPubKey = nullptr;
+    
+    // Try parsing as PEM first
+    BIO* bio = BIO_new_mem_buf(serverPublicKeyData.getData(), 
+                                static_cast<int>(serverPublicKeyData.getSize()));
+    if (bio)
+    {
+        serverPubKey = PEM_read_bio_PUBKEY(bio, nullptr, nullptr, nullptr);
+        BIO_free(bio);
+    }
+    
+    // If PEM parsing failed, try DER format
+    if (!serverPubKey)
+    {
+        const unsigned char* data = static_cast<const unsigned char*>(serverPublicKeyData.getData());
+        serverPubKey = d2i_PUBKEY(nullptr, &data, static_cast<long>(serverPublicKeyData.getSize()));
+    }
+    
+    // If still no key, try to construct RSA key from raw modulus
+    // AirPlay 1 devices often provide just the RSA modulus as raw bytes
+    if (!serverPubKey && serverPublicKeyData.getSize() >= 32)
+    {
+        // Create RSA public key with modulus from server and standard exponent (65537)
+        RSA* rsa = RSA_new();
+        if (rsa)
+        {
+            BIGNUM* n = BN_bin2bn(static_cast<const unsigned char*>(serverPublicKeyData.getData()),
+                                  static_cast<int>(serverPublicKeyData.getSize()), nullptr);
+            BIGNUM* e = BN_new();
+            BN_set_word(e, 65537);  // Standard RSA exponent
+            
+            if (RSA_set0_key(rsa, n, e, nullptr) == 1)
+            {
+                serverPubKey = EVP_PKEY_new();
+                if (serverPubKey && EVP_PKEY_assign_RSA(serverPubKey, rsa) != 1)
+                {
+                    EVP_PKEY_free(serverPubKey);
+                    serverPubKey = nullptr;
+                    RSA_free(rsa);
+                }
+            }
+            else
+            {
+                BN_free(n);
+                BN_free(e);
+                RSA_free(rsa);
+            }
+        }
+    }
+    
+    if (!serverPubKey)
+    {
+        lastError = "Failed to parse server public key in any supported format";
+        return false;
+    }
+
+    // Create encryption context
+    EVP_PKEY_CTX* ctx = EVP_PKEY_CTX_new(serverPubKey, nullptr);
+    if (!ctx)
+    {
+        EVP_PKEY_free(serverPubKey);
+        lastError = "Failed to create encryption context";
+        return false;
+    }
+
+    // Initialize encryption with RSA-OAEP
+    if (EVP_PKEY_encrypt_init(ctx) <= 0)
+    {
+        EVP_PKEY_CTX_free(ctx);
+        EVP_PKEY_free(serverPubKey);
+        lastError = "Failed to initialize RSA encryption";
+        return false;
+    }
+
+    // Set RSA-OAEP padding
+    if (EVP_PKEY_CTX_set_rsa_padding(ctx, RSA_PKCS1_OAEP_PADDING) <= 0)
+    {
+        EVP_PKEY_CTX_free(ctx);
+        EVP_PKEY_free(serverPubKey);
+        lastError = "Failed to set RSA-OAEP padding";
+        return false;
+    }
+
+    // Determine output buffer size
+    size_t encryptedLen = 0;
+    if (EVP_PKEY_encrypt(ctx, nullptr, &encryptedLen,
+                        static_cast<const unsigned char*>(aesKey.getData()),
+                        aesKey.getSize()) <= 0)
+    {
+        EVP_PKEY_CTX_free(ctx);
+        EVP_PKEY_free(serverPubKey);
+        lastError = "Failed to determine encrypted size";
+        return false;
+    }
+
+    // Allocate output buffer
+    encryptedKey.setSize(encryptedLen);
+
+    // Perform encryption
+    if (EVP_PKEY_encrypt(ctx,
+                        static_cast<unsigned char*>(encryptedKey.getData()),
+                        &encryptedLen,
+                        static_cast<const unsigned char*>(aesKey.getData()),
+                        aesKey.getSize()) <= 0)
+    {
+        char errBuf[256];
+        ERR_error_string_n(ERR_get_error(), errBuf, sizeof(errBuf));
+        lastError = "RSA-OAEP encryption failed: " + juce::String(errBuf);
+        EVP_PKEY_CTX_free(ctx);
+        EVP_PKEY_free(serverPubKey);
+        return false;
+    }
+
+    // Adjust to actual encrypted size
+    encryptedKey.setSize(encryptedLen);
+
+    EVP_PKEY_CTX_free(ctx);
+    EVP_PKEY_free(serverPubKey);
+
+    return true;
+}
