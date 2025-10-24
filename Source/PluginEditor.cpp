@@ -201,7 +201,7 @@ void AirPlayPluginEditor::updateBufferHealth()
 void AirPlayPluginEditor::showError(const juce::String& error)
 {
     errorLabel.setText("⚠ " + error, juce::dontSendNotification);
-    DBG("GUI Error: " + error);
+    juce::Logger::writeToLog("GUI Error: " + error);
 }
 
 void AirPlayPluginEditor::showStatus(const juce::String& status)
@@ -220,11 +220,12 @@ void AirPlayPluginEditor::showStatus(const juce::String& status)
     {
         statusLabel.setColour(juce::Label::textColourId, juce::Colours::white);
     }
-    DBG("GUI Status: " + status);
+    juce::Logger::writeToLog("GUI Status: " + status);
 }
 
 void AirPlayPluginEditor::deviceFound(const AirPlayDevice& device)
 {
+    juce::Logger::writeToLog("AirPlayPluginEditor: Device found - " + device.getDeviceName() + " at " + device.getHostAddress() + ":" + juce::String(device.getPort()));
     updateDeviceList();
 }
 
@@ -248,10 +249,17 @@ void AirPlayPluginEditor::updateDeviceList()
 
 void AirPlayPluginEditor::connectButtonClicked()
 {
+    juce::Logger::writeToLog("AirPlayPluginEditor: Connect button clicked");
     int selectedRow = deviceListBox.getSelectedRow();
+    juce::Logger::writeToLog("AirPlayPluginEditor: Selected row: " + juce::String(selectedRow) + ", devices.size(): " + juce::String(devices.size()));
     if (selectedRow >= 0 && selectedRow < devices.size())
     {
+        juce::Logger::writeToLog("AirPlayPluginEditor: Attempting to connect to device: " + devices[selectedRow].getDeviceName());
         audioProcessor.getAirPlayManager().connectToDevice(devices[selectedRow]);
+    }
+    else
+    {
+        juce::Logger::writeToLog("AirPlayPluginEditor: No device selected or invalid selection");
     }
 }
 

@@ -20,6 +20,8 @@ RaopClient::~RaopClient()
 
 bool RaopClient::connect(const AirPlayDevice& device)
 {
+    juce::Logger::writeToLog("[RaopClient] connect() called for device: " + device.getDeviceName() + " at " + device.getHostAddress() + ":" + juce::String(device.getPort()));
+
     if (connected)
         disconnect();
 
@@ -27,9 +29,10 @@ bool RaopClient::connect(const AirPlayDevice& device)
     lastConnectionAttemptTime = juce::Time::currentTimeMillis();
     consecutiveFailures = 0;
     reconnectAttempts = 0;
-    
+
     currentDevice = device;
     cseq = 1;  // Reset sequence number
+    juce::Logger::writeToLog("[RaopClient] Connection state set to Connecting");
 
     // Initialize authentication if enabled
     if (useAuthentication)
@@ -55,25 +58,20 @@ bool RaopClient::connect(const AirPlayDevice& device)
     }
 
     // Try to connect with timeout
+    juce::Logger::writeToLog("RaopClient: Attempting TCP connection to " + device.getHostAddress() + ":" + juce::String(device.getPort()));
     if (!socket->connect(device.getHostAddress(), device.getPort(), 10000))
     {
         lastError = "Failed to connect to " + device.getHostAddress();
         logError(lastError);
+        juce::Logger::writeToLog("RaopClient: TCP connection failed - device may be unreachable or not accepting connections");
         setConnectionState(ConnectionState::TimedOut);
         closeUdpSockets();
         return false;
     }
-    
-    // Verify socket is ready
-    if (!waitForSocketReady(socket.get(), 5000))
-    {
-        lastError = "Connection timeout - device not responding";
-        logError(lastError);
-        setConnectionState(ConnectionState::TimedOut);
-        socket->close();
-        closeUdpSockets();
-        return false;
-    }
+    juce::Logger::writeToLog("RaopClient: TCP connection established successfully");
+
+    // Skip socket readiness check - AirPlay devices expect immediate RTSP handshake
+    juce::Logger::writeToLog("RaopClient: TCP connection established, proceeding with RTSP handshake");
 
     // Initialize timing
     startTime = juce::Time::getCurrentTime();
@@ -81,27 +79,35 @@ bool RaopClient::connect(const AirPlayDevice& device)
     rtpTimestamp = 0;
 
     // Perform RTSP handshake with authentication
+    juce::Logger::writeToLog("RaopClient: Starting RTSP handshake");
     if (useAuthentication)
     {
+        juce::Logger::writeToLog("RaopClient: Sending OPTIONS request");
         if (!sendOptions())
         {
+            juce::Logger::writeToLog("RaopClient: OPTIONS request failed");
             disconnect();
             return false;
         }
 
+        juce::Logger::writeToLog("RaopClient: Sending ANNOUNCE request");
         if (!sendAnnounce())
         {
+            juce::Logger::writeToLog("RaopClient: ANNOUNCE request failed");
             disconnect();
             return false;
         }
     }
 
+    juce::Logger::writeToLog("RaopClient: Sending SETUP request");
     if (!sendSetup())
     {
+        juce::Logger::writeToLog("RaopClient: SETUP request failed");
         disconnect();
         return false;
     }
 
+    juce::Logger::writeToLog("RaopClient: Sending RECORD request");
     if (!sendRecord())
     {
         disconnect();
@@ -113,14 +119,14 @@ bool RaopClient::connect(const AirPlayDevice& device)
     lastSuccessfulSendTime = juce::Time::currentTimeMillis();
     consecutiveFailures = 0;
     reconnectAttempts = 0;
-    DBG("RaopClient: Successfully connected to " + device.getDeviceName());
+    juce::Logger::writeToLog("RaopClient: Successfully connected to " + device.getDeviceName());
     return true;
 }
 
 void RaopClient::disconnect()
 {
     const juce::ScopedLock sl(stateLock);
-    
+
     if (connected)
     {
         sendTeardown();
@@ -128,7 +134,7 @@ void RaopClient::disconnect()
         closeUdpSockets();
         connected = false;
         setConnectionState(ConnectionState::Disconnected);
-        DBG("RaopClient: Disconnected from " + currentDevice.getDeviceName());
+        juce::Logger::writeToLog("RaopClient: Disconnected from " + currentDevice.getDeviceName());
     }
 }
 
@@ -182,12 +188,12 @@ bool RaopClient::sendAudio(const juce::MemoryBlock& audioData, int /*sampleRate*
     {
         lastError = "Failed to send RTP packet";
         consecutiveFailures++;
-        
+
         if (consecutiveFailures > maxConsecutiveFailures)
         {
             logError("Network send failure detected, marking connection as error");
             setConnectionState(ConnectionState::Error);
-            
+
             if (autoReconnectEnabled)
             {
                 attemptReconnect();
@@ -231,12 +237,15 @@ bool RaopClient::sendRtspRequest(const juce::String& method, const juce::String&
     if (body.isNotEmpty())
         request += body;
 
+    juce::Logger::writeToLog("RaopClient: Sending RTSP request: " + request);
     int sent = socket->write(request.toRawUTF8(), request.length());
     if (sent != request.length())
     {
         lastError = "Failed to send RTSP request";
+        juce::Logger::writeToLog("RaopClient: Failed to send RTSP request - sent " + juce::String(sent) + " of " + juce::String(request.length()) + " bytes");
         return false;
     }
+    juce::Logger::writeToLog("RaopClient: Successfully sent " + juce::String(sent) + " bytes");
 
     // Read response if requested
     if (response != nullptr)
@@ -246,23 +255,29 @@ bool RaopClient::sendRtspRequest(const juce::String& method, const juce::String&
         if (bytesRead <= 0)
         {
             lastError = "Failed to read RTSP response";
+            juce::Logger::writeToLog("RaopClient: No response received from device");
             return false;
         }
 
         buffer[bytesRead] = '\0';
         juce::String responseText(buffer);
+        juce::Logger::writeToLog("RaopClient: Received RTSP response: " + responseText);
 
         if (!parseRtspResponse(responseText, *response))
         {
             lastError = "Failed to parse RTSP response";
+            juce::Logger::writeToLog("RaopClient: Failed to parse RTSP response: " + responseText);
             return false;
         }
 
         if (!response->isSuccess())
         {
             lastError = "RTSP request failed: " + juce::String(response->statusCode) + " " + response->statusMessage;
+            juce::Logger::writeToLog("RaopClient: RTSP request failed with status " + juce::String(response->statusCode) + ": " + response->statusMessage);
             return false;
         }
+
+        juce::Logger::writeToLog("RaopClient: RTSP request successful with status " + juce::String(response->statusCode));
     }
 
     return true;
@@ -278,7 +293,7 @@ bool RaopClient::parseRtspResponse(const juce::String& responseText, RtspRespons
     juce::String statusLine = lines[0].trim();
     juce::StringArray statusParts;
     statusParts.addTokens(statusLine, " ", "");
-    
+
     if (statusParts.size() < 2)
         return false;
 
@@ -322,7 +337,7 @@ bool RaopClient::parseTransportHeader(const juce::String& transport, int& audioP
 {
     // Example: RTP/AVP/UDP;unicast;server_port=6000-6001;control_port=6001;timing_port=6002
     // or: RTP/AVP/UDP;unicast;server_port=6000-6001
-    
+
     audioPort = 0;
     controlPort = 0;
     timingPort = 0;
@@ -333,28 +348,28 @@ bool RaopClient::parseTransportHeader(const juce::String& transport, int& audioP
     {
         juce::String serverPortsStr = transport.substring(serverPortIndex + 12);
         int dashIndex = serverPortsStr.indexOf("-");
-        
+
         if (dashIndex > 0)
         {
             // Extract audio port
             audioPort = serverPortsStr.substring(0, dashIndex).getIntValue();
-            
+
             // Extract control port
             juce::String controlPortStr = serverPortsStr.substring(dashIndex + 1);
             int semicolonIndex = controlPortStr.indexOf(";");
             int spaceIndex = controlPortStr.indexOfChar(' ');
             int endIndex = -1;
-            
+
             if (semicolonIndex >= 0 && spaceIndex >= 0)
                 endIndex = juce::jmin(semicolonIndex, spaceIndex);
             else if (semicolonIndex >= 0)
                 endIndex = semicolonIndex;
             else if (spaceIndex >= 0)
                 endIndex = spaceIndex;
-            
+
             if (endIndex > 0)
                 controlPortStr = controlPortStr.substring(0, endIndex);
-            
+
             controlPort = controlPortStr.trim().getIntValue();
         }
     }
@@ -366,12 +381,12 @@ bool RaopClient::parseTransportHeader(const juce::String& transport, int& audioP
         juce::String timingPortStr = transport.substring(timingPortIndex + 12);
         int semicolonIndex = timingPortStr.indexOf(";");
         int spaceIndex = timingPortStr.indexOfChar(' ');
-        
+
         if (semicolonIndex >= 0)
             timingPortStr = timingPortStr.substring(0, semicolonIndex);
         else if (spaceIndex >= 0)
             timingPortStr = timingPortStr.substring(0, spaceIndex);
-        
+
         timingPort = timingPortStr.trim().getIntValue();
     }
     // Some servers might specify timing port as the third port in server_port range
@@ -433,7 +448,7 @@ bool RaopClient::sendAnnounce()
     sdp += "s=FreeCaster Audio Stream\r\n";
     sdp += "c=IN IP4 " + currentDevice.getHostAddress() + "\r\n";
     sdp += "t=0 0\r\n";
-    
+
     // Media description
     sdp += "m=audio 0 RTP/AVP 96\r\n";
     sdp += "a=rtpmap:96 AppleLossless\r\n";
@@ -514,7 +529,7 @@ bool RaopClient::sendRecord()
     headers.set("CSeq", juce::String(cseq++));
     headers.set("Range", "npt=0-");
     headers.set("RTP-Info", "seq=0;rtptime=0");
-    
+
     if (session.isNotEmpty())
         headers.set("Session", session);
 
@@ -525,7 +540,7 @@ bool RaopClient::sendTeardown()
 {
     juce::StringPairArray headers;
     headers.set("CSeq", juce::String(cseq++));
-    
+
     if (session.isNotEmpty())
         headers.set("Session", session);
 
@@ -534,35 +549,90 @@ bool RaopClient::sendTeardown()
 
 bool RaopClient::createUdpSockets()
 {
+    juce::Logger::writeToLog("RaopClient: Creating UDP sockets - audio:" + juce::String(clientAudioPort) +
+        " control:" + juce::String(clientControlPort) + " timing:" + juce::String(clientTimingPort));
+
+    // Validate socket objects exist
+    if (!audioSocket)
+    {
+        lastError = "Audio socket is null";
+        juce::Logger::writeToLog("RaopClient ERROR: " + lastError);
+        return false;
+    }
+    if (!controlSocket)
+    {
+        lastError = "Control socket is null";
+        juce::Logger::writeToLog("RaopClient ERROR: " + lastError);
+        return false;
+    }
+    if (!timingSocket)
+    {
+        lastError = "Timing socket is null";
+        juce::Logger::writeToLog("RaopClient ERROR: " + lastError);
+        return false;
+    }
+
     // Create audio socket
+    juce::Logger::writeToLog("RaopClient: Binding audio socket to port " + juce::String(clientAudioPort) +
+        " (socket at " + juce::String::toHexString(reinterpret_cast<uintptr_t>(audioSocket.get())) + ")");
     if (!audioSocket->bindToPort(clientAudioPort))
     {
         lastError = "Failed to bind audio socket to port " + juce::String(clientAudioPort);
+        juce::Logger::writeToLog("RaopClient ERROR: " + lastError);
         return false;
     }
+    juce::Logger::writeToLog("RaopClient: Successfully bound audio socket to port " + juce::String(clientAudioPort));
 
     // Create control socket
+    juce::Logger::writeToLog("RaopClient: Binding control socket to port " + juce::String(clientControlPort) +
+        " (socket at " + juce::String::toHexString(reinterpret_cast<uintptr_t>(controlSocket.get())) + ")");
     if (!controlSocket->bindToPort(clientControlPort))
     {
         lastError = "Failed to bind control socket to port " + juce::String(clientControlPort);
+        juce::Logger::writeToLog("RaopClient ERROR: " + lastError);
         return false;
     }
+    juce::Logger::writeToLog("RaopClient: Successfully bound control socket to port " + juce::String(clientControlPort));
 
     // Create timing socket
+    juce::Logger::writeToLog("RaopClient: Binding timing socket to port " + juce::String(clientTimingPort) +
+        " (socket at " + juce::String::toHexString(reinterpret_cast<uintptr_t>(timingSocket.get())) + ")");
     if (!timingSocket->bindToPort(clientTimingPort))
     {
         lastError = "Failed to bind timing socket to port " + juce::String(clientTimingPort);
+        juce::Logger::writeToLog("RaopClient ERROR: " + lastError);
         return false;
     }
+    juce::Logger::writeToLog("RaopClient: Successfully bound timing socket to port " + juce::String(clientTimingPort));
 
+    juce::Logger::writeToLog("RaopClient: All UDP sockets created successfully");
     return true;
 }
 
 void RaopClient::closeUdpSockets()
 {
-    if (audioSocket) audioSocket->shutdown();
-    if (controlSocket) controlSocket->shutdown();
-    if (timingSocket) timingSocket->shutdown();
+    // Shutdown and recreate sockets to allow rebinding
+    if (audioSocket)
+    {
+        juce::Logger::writeToLog("RaopClient: Shutting down audio socket (port " + juce::String(clientAudioPort) + ")");
+        audioSocket->shutdown();
+        audioSocket = std::make_unique<juce::DatagramSocket>();
+        juce::Logger::writeToLog("RaopClient: Recreated audio socket at " + juce::String::toHexString(reinterpret_cast<uintptr_t>(audioSocket.get())));
+    }
+    if (controlSocket)
+    {
+        juce::Logger::writeToLog("RaopClient: Shutting down control socket (port " + juce::String(clientControlPort) + ")");
+        controlSocket->shutdown();
+        controlSocket = std::make_unique<juce::DatagramSocket>();
+        juce::Logger::writeToLog("RaopClient: Recreated control socket at " + juce::String::toHexString(reinterpret_cast<uintptr_t>(controlSocket.get())));
+    }
+    if (timingSocket)
+    {
+        juce::Logger::writeToLog("RaopClient: Shutting down timing socket (port " + juce::String(clientTimingPort) + ")");
+        timingSocket->shutdown();
+        timingSocket = std::make_unique<juce::DatagramSocket>();
+        juce::Logger::writeToLog("RaopClient: Recreated timing socket at " + juce::String::toHexString(reinterpret_cast<uintptr_t>(timingSocket.get())));
+    }
 }
 
 bool RaopClient::sendRtpPacket(const void* data, size_t size)
@@ -600,7 +670,7 @@ void RaopClient::setConnectionState(ConnectionState newState)
     if (connectionState != newState)
     {
         connectionState = newState;
-        DBG("RaopClient: Connection state changed to " + getConnectionStateString());
+        juce::Logger::writeToLog("RaopClient: Connection state changed to " + getConnectionStateString());
     }
 }
 
@@ -630,21 +700,21 @@ bool RaopClient::attemptReconnect()
         }
         return false;
     }
-    
+
     // Exponential backoff: 1s, 2s, 4s, 8s, 16s
     int backoffMs = (1 << reconnectAttempts) * 1000;
     juce::int64 timeSinceLastAttempt = juce::Time::currentTimeMillis() - lastConnectionAttemptTime;
-    
+
     if (timeSinceLastAttempt < backoffMs)
     {
         return false;  // Too soon to retry
     }
-    
+
     reconnectAttempts++;
     setConnectionState(ConnectionState::Reconnecting);
-    logError("Attempting reconnection (" + juce::String(reconnectAttempts) + "/" + 
+    logError("Attempting reconnection (" + juce::String(reconnectAttempts) + "/" +
              juce::String(maxReconnectAttempts) + ")");
-    
+
     // Try to reconnect
     if (connect(currentDevice))
     {
@@ -652,7 +722,7 @@ bool RaopClient::attemptReconnect()
         reconnectAttempts = 0;
         return true;
     }
-    
+
     return false;
 }
 
@@ -661,42 +731,42 @@ bool RaopClient::checkConnection()
 {
     if (!connected)
         return false;
-    
+
     // Check if connection has been idle too long (no successful sends)
     juce::int64 timeSinceLastSend = juce::Time::currentTimeMillis() - lastSuccessfulSendTime;
     if (timeSinceLastSend > 30000)  // 30 seconds
     {
         logError("Connection appears stale (no activity for 30s)");
         setConnectionState(ConnectionState::Error);
-        
+
         if (autoReconnectEnabled)
         {
             return attemptReconnect();
         }
         return false;
     }
-    
+
     // Check socket status
     if (!socket || !socket->isConnected())
     {
         logError("Socket disconnected");
         connected = false;
         setConnectionState(ConnectionState::Error);
-        
+
         if (autoReconnectEnabled)
         {
             return attemptReconnect();
         }
         return false;
     }
-    
+
     return true;
 }
 
 // Error logging
 void RaopClient::logError(const juce::String& error)
 {
-    DBG("RaopClient ERROR: " + error);
+    juce::Logger::writeToLog("RaopClient ERROR: " + error);
     juce::Logger::writeToLog("[RaopClient] " + error);
 }
 
@@ -705,16 +775,16 @@ bool RaopClient::waitForSocketReady(juce::StreamingSocket* sock, int timeoutMs)
 {
     if (!sock || !sock->isConnected())
         return false;
-    
+
     juce::int64 startTime = juce::Time::currentTimeMillis();
-    
+
     while (juce::Time::currentTimeMillis() - startTime < timeoutMs)
     {
         if (sock->waitUntilReady(true, 100) == 1)
             return true;
-        
+
         juce::Thread::sleep(50);
     }
-    
+
     return false;
 }
