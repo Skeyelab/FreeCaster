@@ -4,7 +4,7 @@
 AirPlayPluginEditor::AirPlayPluginEditor(AirPlayPluginProcessor& p)
     : AudioProcessorEditor(&p), audioProcessor(p)
 {
-    setSize(400, 500);
+    setSize(500, 500);
 
     titleLabel.setText("FreeCaster", juce::dontSendNotification);
     titleLabel.setFont(juce::Font(24.0f, juce::Font::bold));
@@ -41,6 +41,20 @@ AirPlayPluginEditor::AirPlayPluginEditor(AirPlayPluginProcessor& p)
     bufferHealthLabel.setFont(juce::Font(11.0f));
     bufferHealthLabel.setColour(juce::Label::textColourId, juce::Colours::lightgrey);
     addAndMakeVisible(bufferHealthLabel);
+    
+    // Set up level meters
+    addAndMakeVisible(inputMeter);
+    addAndMakeVisible(outputMeter);
+    
+    inputMeterLabel.setText("Input", juce::dontSendNotification);
+    inputMeterLabel.setJustificationType(juce::Justification::centred);
+    inputMeterLabel.setFont(juce::Font(11.0f));
+    addAndMakeVisible(inputMeterLabel);
+    
+    outputMeterLabel.setText("Output", juce::dontSendNotification);
+    outputMeterLabel.setJustificationType(juce::Justification::centred);
+    outputMeterLabel.setFont(juce::Font(11.0f));
+    addAndMakeVisible(outputMeterLabel);
 
     // Set up error callbacks
     audioProcessor.getAirPlayManager().onError = [this](const juce::String& error)
@@ -56,7 +70,7 @@ AirPlayPluginEditor::AirPlayPluginEditor(AirPlayPluginProcessor& p)
     audioProcessor.getDeviceDiscovery().addListener(this);
     updateDeviceList();
 
-    startTimer(500);  // Update more frequently for better responsiveness
+    startTimer(16);  // ~60Hz for smooth meter updates
 }
 
 AirPlayPluginEditor::~AirPlayPluginEditor()
@@ -72,6 +86,10 @@ void AirPlayPluginEditor::paint(juce::Graphics& g)
 void AirPlayPluginEditor::resized()
 {
     auto area = getLocalBounds().reduced(10);
+    
+    // Reserve space for meters on the right
+    auto metersArea = area.removeFromRight(100);
+    area.removeFromRight(10); // Gap
 
     titleLabel.setBounds(area.removeFromTop(40));
     area.removeFromTop(5);
@@ -89,15 +107,32 @@ void AirPlayPluginEditor::resized()
     area.removeFromTop(10);
 
     auto buttonArea = area.removeFromTop(40);
-    connectButton.setBounds(buttonArea.removeFromLeft(180));
+    connectButton.setBounds(buttonArea.removeFromLeft(165));
     buttonArea.removeFromLeft(10);
     disconnectButton.setBounds(buttonArea);
+    
+    // Layout meters vertically on the right side
+    metersArea.removeFromTop(40); // Align with title
+    
+    auto inputMeterArea = metersArea.removeFromLeft(40);
+    metersArea.removeFromLeft(10);
+    auto outputMeterArea = metersArea.removeFromLeft(40);
+    
+    inputMeterLabel.setBounds(inputMeterArea.removeFromTop(20));
+    inputMeter.setBounds(inputMeterArea.removeFromTop(340));
+    
+    outputMeterLabel.setBounds(outputMeterArea.removeFromTop(20));
+    outputMeter.setBounds(outputMeterArea.removeFromTop(340));
 }
 
 void AirPlayPluginEditor::timerCallback()
 {
     updateStatusDisplay();
     updateBufferHealth();
+    
+    // Update level meters
+    inputMeter.setLevel(audioProcessor.getInputLevel());
+    outputMeter.setLevel(audioProcessor.getOutputLevel());
 }
 
 void AirPlayPluginEditor::updateStatusDisplay()
@@ -208,4 +243,7 @@ void AirPlayPluginEditor::connectButtonClicked()
 void AirPlayPluginEditor::disconnectButtonClicked()
 {
     audioProcessor.getAirPlayManager().disconnectFromDevice();
+    
+    // Reset meters when disconnected
+    outputMeter.reset();
 }
