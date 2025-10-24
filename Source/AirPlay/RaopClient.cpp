@@ -32,6 +32,7 @@ bool RaopClient::connect(const AirPlayDevice& device)
 
     currentDevice = device;
     cseq = 1;  // Reset sequence number
+    receivedAppleResponse = false;  // Reset auth response flag
     juce::Logger::writeToLog("[RaopClient] Connection state set to Connecting");
 
     // Initialize authentication if enabled
@@ -80,7 +81,7 @@ bool RaopClient::connect(const AirPlayDevice& device)
 
     // Perform RTSP handshake with authentication
     juce::Logger::writeToLog("RaopClient: Starting RTSP handshake");
-    
+
     // Always send OPTIONS request (part of RTSP standard)
     juce::Logger::writeToLog("RaopClient: Sending OPTIONS request");
     if (!sendOptions())
@@ -437,6 +438,7 @@ bool RaopClient::sendOptions()
         {
             juce::String appleResponse = response.headers["Apple-Response"];
             juce::Logger::writeToLog("RaopClient: Received Apple-Response: " + appleResponse);
+            receivedAppleResponse = true;
             if (!auth->verifyResponse(appleResponse, "", currentDevice.getHostAddress()))
             {
                 lastError = "Authentication failed: Invalid Apple-Response";
@@ -445,7 +447,8 @@ bool RaopClient::sendOptions()
         }
         else
         {
-            juce::Logger::writeToLog("RaopClient: Device did not send Apple-Response (may not require auth)");
+            juce::Logger::writeToLog("RaopClient: Device did not send Apple-Response (auth not required)");
+            receivedAppleResponse = false;
         }
     }
 
@@ -472,8 +475,8 @@ bool RaopClient::sendAnnounce()
     sdp += "a=rtpmap:96 AppleLossless\r\n";
     sdp += "a=fmtp:96 352 0 16 40 10 14 2 255 0 0 44100\r\n";
 
-    // Add RSA public key for encryption (AES-RSA)
-    if (useAuthentication && auth->isInitialized())
+    // Add RSA public key for encryption (AES-RSA) only if device supports it
+    if (useAuthentication && auth->isInitialized() && receivedAppleResponse)
     {
         juce::String publicKey = auth->getPublicKeyBase64();
         if (publicKey.isNotEmpty())
@@ -485,6 +488,10 @@ bool RaopClient::sendAnnounce()
         // For now, use a simple IV - in production this should be random
         juce::String aesIV = "AAAAAAAAAAAAAAAAAAAAAA==";  // Base64 encoded zeros
         sdp += "a=aesiv:" + aesIV + "\r\n";
+    }
+    else if (useAuthentication && !receivedAppleResponse)
+    {
+        juce::Logger::writeToLog("RaopClient: Skipping auth fields in SDP (device doesn't support auth)");
     }
 
     RtspResponse response;

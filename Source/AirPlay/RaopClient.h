@@ -122,6 +122,7 @@ private:
     // Authentication
     std::unique_ptr<AirPlayAuth> auth;
     bool useAuthentication = true;  // Enable by default
+    bool receivedAppleResponse = false;  // Track if device sent Apple-Response
     int cseq = 1;  // RTSP sequence number
 
     // RTSP session info
