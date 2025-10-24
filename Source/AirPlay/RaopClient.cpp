@@ -80,23 +80,23 @@ bool RaopClient::connect(const AirPlayDevice& device)
 
     // Perform RTSP handshake with authentication
     juce::Logger::writeToLog("RaopClient: Starting RTSP handshake");
-    if (useAuthentication)
+    
+    // Always send OPTIONS request (part of RTSP standard)
+    juce::Logger::writeToLog("RaopClient: Sending OPTIONS request");
+    if (!sendOptions())
     {
-        juce::Logger::writeToLog("RaopClient: Sending OPTIONS request");
-        if (!sendOptions())
-        {
-            juce::Logger::writeToLog("RaopClient: OPTIONS request failed");
-            disconnect();
-            return false;
-        }
+        juce::Logger::writeToLog("RaopClient: OPTIONS request failed");
+        disconnect();
+        return false;
+    }
 
-        juce::Logger::writeToLog("RaopClient: Sending ANNOUNCE request");
-        if (!sendAnnounce())
-        {
-            juce::Logger::writeToLog("RaopClient: ANNOUNCE request failed");
-            disconnect();
-            return false;
-        }
+    // Send ANNOUNCE request with authentication if enabled
+    juce::Logger::writeToLog("RaopClient: Sending ANNOUNCE request");
+    if (!sendAnnounce())
+    {
+        juce::Logger::writeToLog("RaopClient: ANNOUNCE request failed");
+        disconnect();
+        return false;
     }
 
     juce::Logger::writeToLog("RaopClient: Sending SETUP request");
@@ -259,7 +259,7 @@ bool RaopClient::sendRtspRequest(const juce::String& method, const juce::String&
             juce::Logger::writeToLog("RaopClient: Socket not ready - ready state: " + juce::String(ready));
             return false;
         }
-        
+
         char buffer[4096];
         int bytesRead = socket->read(buffer, sizeof(buffer) - 1, false);
         if (bytesRead <= 0)
@@ -430,14 +430,22 @@ bool RaopClient::sendOptions()
     if (!sendRtspRequest("OPTIONS", "*", headers, &response))
         return false;
 
-    // Verify Apple-Response if authentication is enabled
-    if (useAuthentication && response.headers.containsKey("Apple-Response"))
+    // Log whether Apple-Response was received
+    if (useAuthentication)
     {
-        juce::String appleResponse = response.headers["Apple-Response"];
-        if (!auth->verifyResponse(appleResponse, "", currentDevice.getHostAddress()))
+        if (response.headers.containsKey("Apple-Response"))
         {
-            lastError = "Authentication failed: Invalid Apple-Response";
-            return false;
+            juce::String appleResponse = response.headers["Apple-Response"];
+            juce::Logger::writeToLog("RaopClient: Received Apple-Response: " + appleResponse);
+            if (!auth->verifyResponse(appleResponse, "", currentDevice.getHostAddress()))
+            {
+                lastError = "Authentication failed: Invalid Apple-Response";
+                return false;
+            }
+        }
+        else
+        {
+            juce::Logger::writeToLog("RaopClient: Device did not send Apple-Response (may not require auth)");
         }
     }
 
