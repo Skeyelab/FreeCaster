@@ -60,6 +60,13 @@ bool AirPlayMac::streamAudio(const juce::AudioBuffer<float>& buffer, int numSamp
     if (!connected || !pimpl->encoder)
         return false;
 
+    // Debug logging (remove in production)
+    // static int streamCounter = 0;
+    // if (++streamCounter % 1000 == 0) // Log every 1000 calls
+    // {
+    //     DBG("AirPlayMac::streamAudio called - samples: " << numSamples << ", channels: " << buffer.getNumChannels());
+    // }
+
     // TODO: Implement native macOS AirPlay streaming
     // For now, just encode the audio (stub implementation)
     auto encodedData = pimpl->encoder->encode(buffer, numSamples);

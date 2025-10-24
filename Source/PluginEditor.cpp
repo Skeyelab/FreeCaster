@@ -161,8 +161,25 @@ void AirPlayPluginEditor::timerCallback()
     float inputLevel = (testLevel > 0.0f) ? testLevel : audioProcessor.getInputLevel();
     float outputLevel = (testLevel > 0.0f) ? testLevel : audioProcessor.getOutputLevel();
 
-    inputMeter.setLevel(inputLevel);
-    outputMeter.setLevel(outputLevel);
+    // Debug logging (remove in production)
+    // static int meterDebugCounter = 0;
+    // if (++meterDebugCounter % 60 == 0) // Log every 60 calls (~1 second at 60Hz)
+    // {
+    //     DBG("Meter levels - Input: " << inputLevel << ", Output: " << outputLevel);
+    // }
+
+    // Only show input meters when not connected (to show input signal)
+    // Only show output meters when connected (to show what's being sent to AirPlay)
+    if (audioProcessor.getAirPlayManager().isConnected())
+    {
+        inputMeter.setLevel(0.0f);  // Hide input meter when connected
+        outputMeter.setLevel(outputLevel);  // Show output meter when connected
+    }
+    else
+    {
+        inputMeter.setLevel(inputLevel);  // Show input meter when not connected
+        outputMeter.setLevel(0.0f);  // Hide output meter when not connected
+    }
 }
 
 void AirPlayPluginEditor::updateStatusDisplay()

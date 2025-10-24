@@ -54,6 +54,33 @@ void AirPlayPluginProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce
 {
     juce::ScopedNoDenormals noDenormals;
     
+    // Debug logging to see if processBlock is called (remove in production)
+    // static int processCounter = 0;
+    // if (++processCounter % 1000 == 0) // Log every 1000 calls
+    // {
+    //     DBG("processBlock called - channels: " << buffer.getNumChannels() << ", samples: " << buffer.getNumSamples());
+    // }
+    
+    // Generate test tone if connected to AirPlay (for testing)
+    static double phase = 0.0;
+    static double frequency = 440.0; // A4 note
+    double sampleRate = getSampleRate();
+    
+    if (airPlayManager.isConnected())
+    {
+        for (int sample = 0; sample < buffer.getNumSamples(); ++sample)
+        {
+            float sampleValue = 0.3f * std::sin(phase); // Low volume test tone
+            for (int channel = 0; channel < buffer.getNumChannels(); ++channel)
+            {
+                buffer.setSample(channel, sample, sampleValue);
+            }
+            phase += 2.0 * juce::MathConstants<double>::pi * frequency / sampleRate;
+            if (phase > 2.0 * juce::MathConstants<double>::pi)
+                phase -= 2.0 * juce::MathConstants<double>::pi;
+        }
+    }
+    
     // Calculate input level (RMS)
     float inputRMS = 0.0f;
     for (int channel = 0; channel < buffer.getNumChannels(); ++channel)
@@ -74,6 +101,13 @@ void AirPlayPluginProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce
     // RMS of 0.7 (~-3dB) maps to full scale
     float normalizedInput = juce::jlimit(0.0f, 1.0f, inputRMS / 0.7f);
     inputLevel.store(normalizedInput);
+    
+    // Debug logging (remove in production)
+    // static int debugCounter = 0;
+    // if (++debugCounter % 1000 == 0) // Log every 1000 calls
+    // {
+    //     DBG("Input RMS: " << inputRMS << ", Normalized: " << normalizedInput);
+    // }
     
     // Send to AirPlay if connected
     if (airPlayManager.isConnected())
