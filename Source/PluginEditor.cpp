@@ -41,16 +41,16 @@ AirPlayPluginEditor::AirPlayPluginEditor(AirPlayPluginProcessor& p)
     bufferHealthLabel.setFont(juce::Font(11.0f));
     bufferHealthLabel.setColour(juce::Label::textColourId, juce::Colours::lightgrey);
     addAndMakeVisible(bufferHealthLabel);
-    
+
     // Set up level meters
     addAndMakeVisible(inputMeter);
     addAndMakeVisible(outputMeter);
-    
+
     inputMeterLabel.setText("Input", juce::dontSendNotification);
     inputMeterLabel.setJustificationType(juce::Justification::centred);
     inputMeterLabel.setFont(juce::Font(11.0f));
     addAndMakeVisible(inputMeterLabel);
-    
+
     outputMeterLabel.setText("Output", juce::dontSendNotification);
     outputMeterLabel.setJustificationType(juce::Justification::centred);
     outputMeterLabel.setFont(juce::Font(11.0f));
@@ -61,7 +61,7 @@ AirPlayPluginEditor::AirPlayPluginEditor(AirPlayPluginProcessor& p)
     {
         showError(error);
     };
-    
+
     audioProcessor.getAirPlayManager().onStatusChange = [this](const juce::String& status)
     {
         showStatus(status);
@@ -86,7 +86,7 @@ void AirPlayPluginEditor::paint(juce::Graphics& g)
 void AirPlayPluginEditor::resized()
 {
     auto area = getLocalBounds().reduced(10);
-    
+
     // Reserve space for meters on the right
     auto metersArea = area.removeFromRight(100);
     area.removeFromRight(10); // Gap
@@ -96,10 +96,10 @@ void AirPlayPluginEditor::resized()
 
     statusLabel.setBounds(area.removeFromTop(25));
     area.removeFromTop(3);
-    
+
     errorLabel.setBounds(area.removeFromTop(20));
     area.removeFromTop(3);
-    
+
     bufferHealthLabel.setBounds(area.removeFromTop(20));
     area.removeFromTop(10);
 
@@ -110,17 +110,17 @@ void AirPlayPluginEditor::resized()
     connectButton.setBounds(buttonArea.removeFromLeft(165));
     buttonArea.removeFromLeft(10);
     disconnectButton.setBounds(buttonArea);
-    
+
     // Layout meters vertically on the right side
     metersArea.removeFromTop(40); // Align with title
-    
+
     auto inputMeterArea = metersArea.removeFromLeft(40);
     metersArea.removeFromLeft(10);
     auto outputMeterArea = metersArea.removeFromLeft(40);
-    
+
     inputMeterLabel.setBounds(inputMeterArea.removeFromTop(20));
     inputMeter.setBounds(inputMeterArea.removeFromTop(340));
-    
+
     outputMeterLabel.setBounds(outputMeterArea.removeFromTop(20));
     outputMeter.setBounds(outputMeterArea.removeFromTop(340));
 }
@@ -129,7 +129,7 @@ void AirPlayPluginEditor::timerCallback()
 {
     updateStatusDisplay();
     updateBufferHealth();
-    
+
     // Update level meters
     inputMeter.setLevel(audioProcessor.getInputLevel());
     outputMeter.setLevel(audioProcessor.getOutputLevel());
@@ -138,14 +138,14 @@ void AirPlayPluginEditor::timerCallback()
 void AirPlayPluginEditor::updateStatusDisplay()
 {
     auto& manager = audioProcessor.getAirPlayManager();
-    
+
     if (manager.isConnected())
     {
         statusLabel.setText(manager.getConnectionStatus(), juce::dontSendNotification);
         statusLabel.setColour(juce::Label::textColourId, juce::Colours::lightgreen);
         connectButton.setEnabled(false);
         disconnectButton.setEnabled(true);
-        
+
         // Clear error if connected successfully
         juce::String lastError = manager.getLastError();
         if (lastError.isEmpty())
@@ -157,7 +157,7 @@ void AirPlayPluginEditor::updateStatusDisplay()
         statusLabel.setColour(juce::Label::textColourId, juce::Colours::white);
         connectButton.setEnabled(true);
         disconnectButton.setEnabled(false);
-        
+
         // Show error if present
         juce::String lastError = manager.getLastError();
         if (lastError.isNotEmpty())
@@ -186,7 +186,7 @@ void AirPlayPluginEditor::updateBufferHealth()
 void AirPlayPluginEditor::showError(const juce::String& error)
 {
     errorLabel.setText("⚠ " + error, juce::dontSendNotification);
-    DBG("GUI Error: " + error);
+    juce::Logger::writeToLog("GUI Error: " + error);
 }
 
 void AirPlayPluginEditor::showStatus(const juce::String& status)
@@ -205,11 +205,12 @@ void AirPlayPluginEditor::showStatus(const juce::String& status)
     {
         statusLabel.setColour(juce::Label::textColourId, juce::Colours::white);
     }
-    DBG("GUI Status: " + status);
+    juce::Logger::writeToLog("GUI Status: " + status);
 }
 
 void AirPlayPluginEditor::deviceFound(const AirPlayDevice& device)
 {
+    juce::Logger::writeToLog("AirPlayPluginEditor: Device found - " + device.getDeviceName() + " at " + device.getHostAddress() + ":" + juce::String(device.getPort()));
     updateDeviceList();
 }
 
@@ -233,17 +234,24 @@ void AirPlayPluginEditor::updateDeviceList()
 
 void AirPlayPluginEditor::connectButtonClicked()
 {
+    juce::Logger::writeToLog("AirPlayPluginEditor: Connect button clicked");
     int selectedRow = deviceListBox.getSelectedRow();
+    juce::Logger::writeToLog("AirPlayPluginEditor: Selected row: " + juce::String(selectedRow) + ", devices.size(): " + juce::String(devices.size()));
     if (selectedRow >= 0 && selectedRow < devices.size())
     {
+        juce::Logger::writeToLog("AirPlayPluginEditor: Attempting to connect to device: " + devices[selectedRow].getDeviceName());
         audioProcessor.getAirPlayManager().connectToDevice(devices[selectedRow]);
+    }
+    else
+    {
+        juce::Logger::writeToLog("AirPlayPluginEditor: No device selected or invalid selection");
     }
 }
 
 void AirPlayPluginEditor::disconnectButtonClicked()
 {
     audioProcessor.getAirPlayManager().disconnectFromDevice();
-    
+
     // Reset meters when disconnected
     outputMeter.reset();
 }

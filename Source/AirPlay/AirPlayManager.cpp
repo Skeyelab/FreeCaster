@@ -12,7 +12,7 @@ AirPlayManager::AirPlayManager() : Thread("AirPlayStream")
 {
     encoder = std::make_unique<AudioEncoder>();
     buffer = std::make_unique<StreamBuffer>(2, 8192);
-    
+
 #if JUCE_MAC
     streamer = std::make_unique<AirPlayMac>();
 #elif JUCE_WINDOWS
@@ -37,44 +37,56 @@ void AirPlayManager::prepare(double sampleRate, int samplesPerBlock)
 
 void AirPlayManager::connectToDevice(const AirPlayDevice& device)
 {
+    juce::Logger::writeToLog("AirPlayManager: connectToDevice called for: " + device.getDeviceName() + " at " + device.getHostAddress() + ":" + juce::String(device.getPort()));
     const juce::ScopedLock sl(connectionLock);
-    
+
     hasError = false;
     isReconnecting = false;
-    
-    if (streamer && streamer->connect(device))
+
+    if (streamer)
     {
-        connectedDevice = device;
-        lastError.clear();
-        startThread();
-        notifyStatusChange("Connected to " + device.getDeviceName());
-        DBG("AirPlayManager: Connected to " + device.getDeviceName());
+        juce::Logger::writeToLog("AirPlayManager: Streamer exists, attempting connection");
+        if (streamer->connect(device))
+        {
+            connectedDevice = device;
+            lastError.clear();
+            startThread();
+            notifyStatusChange("Connected to " + device.getDeviceName());
+            juce::Logger::writeToLog("AirPlayManager: Connected to " + device.getDeviceName());
+        }
+        else
+        {
+            lastError = streamer->getLastError();
+            hasError = true;
+            notifyError("Connection failed: " + lastError);
+            juce::Logger::writeToLog("AirPlayManager: Connection failed - " + lastError);
+        }
     }
     else
     {
-        lastError = streamer ? streamer->getLastError() : "Streamer not available";
+        lastError = "Streamer not available";
         hasError = true;
         notifyError("Connection failed: " + lastError);
-        DBG("AirPlayManager: Connection failed - " + lastError);
+        juce::Logger::writeToLog("AirPlayManager: Streamer not available");
     }
 }
 
 void AirPlayManager::disconnectFromDevice()
 {
     const juce::ScopedLock sl(connectionLock);
-    
+
     signalThreadShouldExit();
     notify();
     stopThread(2000);
-    
+
     if (streamer)
         streamer->disconnect();
-    
+
     connectedDevice = AirPlayDevice();
     hasError = false;
     isReconnecting = false;
     notifyStatusChange("Disconnected");
-    DBG("AirPlayManager: Disconnected");
+    juce::Logger::writeToLog("AirPlayManager: Disconnected");
 }
 
 bool AirPlayManager::isConnected() const
@@ -104,19 +116,19 @@ juce::String AirPlayManager::getLastError() const
 juce::String AirPlayManager::getConnectionStatus() const
 {
     const juce::ScopedLock sl(connectionLock);
-    
+
     if (!streamer)
         return "Not initialized";
-    
+
     if (isReconnecting)
         return "Reconnecting...";
-    
+
     if (hasError)
         return "Error: " + lastError;
-    
+
     if (streamer->isConnected())
         return "Connected to " + connectedDevice.getDeviceName();
-    
+
     return "Disconnected";
 }
 
@@ -126,7 +138,7 @@ void AirPlayManager::setAutoReconnect(bool enable)
     {
         // Platform-specific implementation would need this method
         // For now, just log it
-        DBG("AirPlayManager: Auto-reconnect " + juce::String(enable ? "enabled" : "disabled"));
+        juce::Logger::writeToLog("AirPlayManager: Auto-reconnect " + juce::String(enable ? "enabled" : "disabled"));
     }
 }
 
@@ -150,10 +162,10 @@ void AirPlayManager::processAudioStream()
 {
     if (!isConnected() || !buffer || !encoder || !streamer)
         return;
-    
+
     juce::AudioBuffer<float> tempBuffer(2, currentSamplesPerBlock);
     int samplesRead = buffer->read(tempBuffer, currentSamplesPerBlock);
-    
+
     if (samplesRead > 0)
     {
         if (!streamer->streamAudio(tempBuffer, samplesRead))
@@ -170,16 +182,16 @@ void AirPlayManager::processAudioStream()
 void AirPlayManager::monitorConnection()
 {
     juce::int64 now = juce::Time::currentTimeMillis();
-    
+
     // Monitor every 5 seconds
     if (now - lastMonitorTime < 5000)
         return;
-    
+
     lastMonitorTime = now;
-    
+
     if (!streamer)
         return;
-    
+
     // Check if we're still connected
     if (streamer->isConnected())
     {
@@ -190,7 +202,7 @@ void AirPlayManager::monitorConnection()
             hasError = false;
             isReconnecting = false;
             notifyStatusChange("Connection recovered");
-            DBG("AirPlayManager: Connection recovered");
+            juce::Logger::writeToLog("AirPlayManager: Connection recovered");
         }
     }
     else if (!hasError)
@@ -200,7 +212,7 @@ void AirPlayManager::monitorConnection()
         lastError = "Connection lost to " + connectedDevice.getDeviceName();
         hasError = true;
         notifyError(lastError);
-        DBG("AirPlayManager: " + lastError);
+        juce::Logger::writeToLog("AirPlayManager: " + lastError);
     }
 }
 
